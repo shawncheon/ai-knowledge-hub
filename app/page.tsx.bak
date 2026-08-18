@@ -1,0 +1,1765 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+export default function Home() {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  interface SourceItem {
+    id: string;
+    fileName: string;
+  }
+
+  const [sources, setSources] = useState<SourceItem[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  interface CurrentUser {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  }
+
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [selectedHistoryItem, setSelectedHistoryItem] =
+    useState<HistoryItem | null>(null);
+  interface HistoryItem {
+    id: string;
+    question: string;
+    answer: string;
+    sources: SourceItem[];
+    created_at: string;
+  }
+
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  const [extractedText, setExtractedText] = useState("");
+
+  interface DocumentItem {
+    id: string;
+    file_name: string;
+    file_size: number;
+    chunk_count: number;
+    created_at: string;
+  }
+
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // =========================
+  // 정보 관리: 목록 / 등록 / 상세 화면 전환
+  // =========================
+  type DocumentsView = "list" | "register" | "detail";
+ const [documentsView, setDocumentsView] = useState<DocumentsView>("list");
+  const [documentSearchQuery, setDocumentSearchQuery] = useState("");
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+
+  interface DocumentDetail {
+    id: string;
+    fileName: string;
+    fileSize: number;
+    chunkCount: number;
+    createdAt: string;
+    textPreview: string;
+  }
+
+  const [selectedDocument, setSelectedDocument] =
+    useState<DocumentDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+  const [activeMenu, setActiveMenu] = useState("AI Search");
+  const [hasSetInitialMenu, setHasSetInitialMenu] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const menuLabels: Record<string, string> = {
+    Dashboard: "대시보드",
+    "AI Search": "AI 정보 검색",
+    Documents: "정보 관리",
+    History: "질문 기록",
+    Settings: "Settings",
+  };
+
+  const recommendedQuestions = [
+    "출장비 기준",
+    "연차 사용 기준",
+    "복지제도 안내",
+  ];
+
+  // =========================
+  // 등록된 문서 목록 불러오기
+  // =========================
+  const loadDocuments = async () => {
+    setIsLoadingDocuments(true);
+
+    try {
+      const response = await fetch("/api/documents");
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setDocuments(data.documents || []);
+      }
+    } catch (error) {
+      console.error("문서 목록 조회 실패:", error);
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  };
+
+  // =========================
+  // 문서 상세 정보 불러오기
+  // =========================
+  const loadDocumentDetail = async (id: string) => {
+    setIsLoadingDetail(true);
+    setSelectedDocument(null);
+    setDocumentsView("detail");
+
+    try {
+      const response = await fetch(`/api/documents/${id}`);
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSelectedDocument(data.document);
+      } else {
+        alert(data.error || "문서 정보를 불러오지 못했습니다.");
+        setDocumentsView("list");
+      }
+    } catch (error) {
+      console.error("문서 상세 조회 실패:", error);
+      alert("문서 정보를 불러오지 못했습니다.");
+      setDocumentsView("list");
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  // =========================
+  // 로그인한 사용자 정보 불러오기
+  // =========================
+  const loadCurrentUser = async () => {
+    try {
+      const response = await fetch("/api/me");
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setCurrentUser(data.user);
+
+        // 최초 진입 시에만 role에 맞는 기본 화면으로 이동
+        if (!hasSetInitialMenu) {
+          setActiveMenu(
+            data.user.role === "admin" ? "Dashboard" : "AI Search"
+          );
+          setHasSetInitialMenu(true);
+        }
+      }
+    } catch (error) {
+      console.error("사용자 정보 조회 실패:", error);
+    }
+  };
+
+  // =========================
+  // 로그아웃
+  // =========================
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/logout", { method: "POST" });
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("로그아웃 실패:", error);
+    }
+  };
+
+  // 페이지 최초 로드 시 문서 목록 불러오기
+  useEffect(() => {
+    loadDocuments();
+    loadHistory();
+    loadCurrentUser();
+  }, []);
+
+  // =========================
+  // 질문/답변 히스토리 불러오기
+  // =========================
+  const loadHistory = async () => {
+    setIsLoadingHistory(true);
+
+    try {
+      const response = await fetch("/api/history");
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setHistory(data.history || []);
+      }
+    } catch (error) {
+      console.error("히스토리 조회 실패:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // =========================
+  // Gemini AI 검색
+  // =========================
+  const handleSearch = async () => {
+    if (!question.trim()) {
+      alert("질문을 입력해주세요.");
+      return;
+    }
+
+    setIsLoading(true);
+    setAnswer("");
+    setSources([]);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: question,
+        }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+
+      let data: {
+        answer?: string;
+        error?: string;
+        sources?: SourceItem[];
+      };
+
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+
+        data = {
+          error: text,
+        };
+      }
+
+      if (!response.ok) {
+        setAnswer(
+          `오류가 발생했습니다.\n\n${data.error || "AI 요청 실패"}`
+        );
+        return;
+      }
+
+      setAnswer(data.answer || "");
+      setSources(data.sources || []);
+
+      // 새 질문 후 최근 질문 목록도 갱신
+      loadHistory();
+    } catch (error) {
+      console.error("Fetch Error:", error);
+
+      setAnswer("AI 서버에 연결하지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // =========================
+  // 참고 문서 다운로드
+  // =========================
+  const handleDownload = async (id: string, fileName: string) => {
+    const lowerName = fileName.toLowerCase();
+    const isPdf = lowerName.endsWith(".pdf");
+
+    // 팝업 차단 방지: 클릭 즉시(비동기 작업 전에) 빈 탭을 먼저 열어둔다
+    const newTab = isPdf ? window.open("", "_blank") : null;
+
+    setDownloadingId(id);
+
+    try {
+      const response = await fetch(`/api/documents/${id}/download`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "다운로드 링크 생성에 실패했습니다.");
+      }
+
+      if (isPdf) {
+        if (newTab) {
+          newTab.location.href = data.url;
+        } else {
+          window.open(data.url, "_blank");
+        }
+      } else {
+        const link = document.createElement("a");
+        link.href = data.url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error("Download Error:", error);
+
+      if (newTab) {
+        newTab.close();
+      }
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "다운로드 중 오류가 발생했습니다."
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // =========================
+  // 문서 삭제
+  // =========================
+  const handleDeleteDocument = async (id: string, fileName: string) => {
+    const confirmed = window.confirm(
+      `"${fileName}" 문서를 삭제하시겠습니까?\n삭제하면 AI 검색에서도 더 이상 참조되지 않습니다.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(id);
+
+    try {
+      const response = await fetch(`/api/documents/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "문서 삭제에 실패했습니다.");
+      }
+
+      await loadDocuments();
+
+      // 상세 화면에서 삭제했다면 목록으로 이동
+      if (documentsView === "detail") {
+        setDocumentsView("list");
+        setSelectedDocument(null);
+      }
+    } catch (error) {
+      console.error("Delete Error:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "문서 삭제 중 오류가 발생했습니다."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // =========================
+  // 추천 질문
+  // =========================
+  const handleRecommendedQuestion = (text: string) => {
+    setQuestion(text);
+  };
+
+  // =========================
+  // 히스토리 항목 클릭 → 팝업으로 결과 표시
+  // =========================
+  const handleHistoryItemClick = (item: HistoryItem) => {
+    setSelectedHistoryItem(item);
+  };
+
+  // =========================
+  // 최근 7일 질문 수 집계
+  // =========================
+  const getWeeklyQuestionCounts = () => {
+    const days: { label: string; count: number }[] = [];
+    const now = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+
+      const label = d.toLocaleDateString("ko-KR", {
+        weekday: "short",
+      });
+
+      const dateStr = d.toDateString();
+
+      const count = history.filter(
+        (h) => new Date(h.created_at).toDateString() === dateStr
+      ).length;
+
+      days.push({ label, count });
+    }
+
+    return days;
+  };
+
+  // =========================
+  // 파일 선택
+  // =========================
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    // PDF 또는 Excel 파일인지 확인
+    const fileName = file.name.toLowerCase();
+    const isPdf = file.type === "application/pdf";
+    const isExcel =
+      fileName.endsWith(".xlsx") ||
+      fileName.endsWith(".xls") ||
+      fileName.endsWith(".csv");
+
+    if (!isPdf && !isExcel) {
+      alert("PDF 또는 Excel(.xlsx, .xls, .csv) 파일만 업로드할 수 있습니다.");
+
+      event.target.value = "";
+
+      return;
+    }
+
+    // 10MB 제한
+    const maxSize = 10 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      alert("파일 크기는 10MB 이하만 가능합니다.");
+
+      event.target.value = "";
+
+      return;
+    }
+
+    setSelectedFile(file);
+    setExtractedText("");
+  };
+
+  // =========================
+  // 선택한 파일 삭제
+  // =========================
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setExtractedText("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // =========================
+  // 문서 업로드
+  // → 서버에서 추출 + 청크 분할 + 임베딩 생성 + 저장까지 한 번에 처리
+  // =========================
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      alert("먼저 파일을 선택해주세요.");
+      return;
+    }
+
+    setIsUploading(true);
+    setExtractedText("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+
+      let data: {
+        success?: boolean;
+        document?: {
+          fileName: string;
+          textPreview?: string;
+        };
+        error?: string;
+      };
+
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+
+        data = {
+          error: text,
+        };
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "문서 처리에 실패했습니다.");
+      }
+
+      console.log("문서 업로드 완료:", data.document);
+
+      // 업로드 성공 후 문서 목록 새로고침 + 목록 화면으로 복귀
+      await loadDocuments();
+
+      alert(
+        `문서 업로드 및 처리가 완료되었습니다.\n\n파일명: ${
+          data.document?.fileName || selectedFile.name
+        }`
+      );
+
+      handleRemoveFile();
+      setDocumentsView("list");
+    } catch (error) {
+      console.error("Upload Error:", error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "문서 처리 중 오류가 발생했습니다.";
+
+      alert(message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // =========================
+  // 정보 관리 메뉴 진입 시 상태 초기화
+  // =========================
+  const enterDocumentsMenu = () => {
+    setActiveMenu("Documents");
+    setDocumentsView("list");
+    setSelectedDocument(null);
+    setSelectedFile(null);
+    setExtractedText("");
+    setDocumentSearchQuery("");
+  };
+
+ const filteredDocuments = documents.filter((doc) =>
+    doc.file_name.toLowerCase().includes(documentSearchQuery.toLowerCase())
+  );
+
+  const filteredHistory = history.filter(
+    (item) =>
+      item.question
+        .toLowerCase()
+        .includes(historySearchQuery.toLowerCase()) ||
+      item.answer.toLowerCase().includes(historySearchQuery.toLowerCase())
+  );
+
+  return (
+    <main className="min-h-screen bg-[#f7f8fa] text-gray-900">
+      <div className="flex min-h-screen">
+        {/* =====================================
+            SIDEBAR
+        ====================================== */}
+
+        <aside className="fixed left-0 top-0 flex h-screen w-[240px] flex-col border-r border-gray-200 bg-white">
+          {/* Logo */}
+
+          <button
+            onClick={() => {
+              setSelectedFile(null);
+              setExtractedText("");
+              setActiveMenu("Dashboard");
+            }}
+            className="flex h-[76px] cursor-pointer items-center border-b border-gray-100 px-6 text-left transition hover:bg-gray-50"
+          >
+            <div className="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-black text-sm font-bold text-white">
+              AI
+            </div>
+
+            <div>
+              <div className="text-[15px] font-bold">사내 정보 센터</div>
+
+              <div className="text-[11px] text-gray-400">
+                AI Knowledge Management
+              </div>
+            </div>
+          </button>
+
+          {/* Navigation */}
+
+          <nav className="flex-1 px-4 py-6">
+            <div className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              Workspace
+            </div>
+
+            {/* Dashboard (관리자 전용) */}
+
+            {currentUser?.role === "admin" && (
+              <button
+                onClick={() => {
+                  setSelectedFile(null);
+                  setExtractedText("");
+                  setActiveMenu("Dashboard");
+                }}
+                className={`mb-1 flex w-full items-center rounded-lg px-3 py-3 text-sm transition ${
+                  activeMenu === "Dashboard"
+                    ? "bg-black font-semibold text-white"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <span className="mr-3 text-base">▦</span>
+                대시보드
+              </button>
+            )}
+
+            {/* AI Search */}
+
+            <button
+              onClick={() => {
+                setQuestion("");
+                setAnswer("");
+                setSources([]);
+                setActiveMenu("AI Search");
+              }}
+              className={`mb-1 flex w-full items-center rounded-lg px-3 py-3 text-sm transition ${
+                activeMenu === "AI Search"
+                  ? "bg-black font-semibold text-white"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <span className="mr-3 text-base">⌕</span>
+              AI 정보 검색
+            </button>
+
+            {/* Documents (관리자 전용) */}
+
+            {currentUser?.role === "admin" && (
+              <button
+                onClick={enterDocumentsMenu}
+                className={`mb-1 flex w-full items-center rounded-lg px-3 py-3 text-sm transition ${
+                  activeMenu === "Documents"
+                    ? "bg-black font-semibold text-white"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <span className="mr-3 text-base">□</span>
+                정보 관리
+              </button>
+            )}
+
+            {/* History */}
+
+            <button
+              onClick={() => {
+                setActiveMenu("History");
+                loadHistory();
+              }}
+              className={`mb-1 flex w-full items-center rounded-lg px-3 py-3 text-sm transition ${
+                activeMenu === "History"
+                  ? "bg-black font-semibold text-white"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <span className="mr-3 text-base">◷</span>
+              질문 기록
+            </button>
+
+            <div className="mb-3 mt-8 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              System
+            </div>
+
+            {/* Settings */}
+
+            <button
+              onClick={() => setActiveMenu("Settings")}
+              className={`mb-1 flex w-full items-center rounded-lg px-3 py-3 text-sm transition ${
+                activeMenu === "Settings"
+                  ? "bg-gray-100 font-semibold text-gray-900"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <span className="mr-3 text-base">⚙</span>
+              Settings
+            </button>
+          </nav>
+
+          {/* User */}
+
+          <div className="border-t border-gray-100 p-4">
+            <div className="flex items-center rounded-xl bg-gray-50 p-3">
+              <div className="mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-800 text-xs font-bold text-white">
+                {currentUser?.name?.[0] || "?"}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">
+                  {currentUser?.name || "사용자"}
+                </div>
+
+                <div className="truncate text-xs text-gray-400">
+                  {currentUser?.role === "admin" ? "관리자" : "임직원"}
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="ml-2 shrink-0 cursor-pointer rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                title="로그아웃"
+              >
+                ⏻
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* =====================================
+            MAIN
+        ====================================== */}
+
+        <section className="ml-[240px] min-h-screen flex-1">
+          {/* Header */}
+
+          <header className="flex h-[76px] items-center justify-between border-b border-gray-200 bg-white px-8">
+            <div>
+              <div className="text-sm font-semibold">
+                {menuLabels[activeMenu] || activeMenu}
+              </div>
+
+              <div className="text-xs text-gray-400">
+                AI Knowledge Management
+              </div>
+            </div>
+
+            <div className="flex items-center gap-5">
+              <button className="text-lg text-gray-500">♢</button>
+
+              <div className="h-7 w-px bg-gray-200" />
+
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-800 text-xs font-bold text-white">
+                  {currentUser?.name?.[0] || "?"}
+                </div>
+
+                <span className="text-sm font-medium">
+                  {currentUser?.name || "사용자"}
+                </span>
+              </div>
+            </div>
+          </header>
+
+          {/* =====================================
+              CONTENT
+          ====================================== */}
+
+          <div className="mx-auto max-w-[1200px] px-8 py-10">
+            {/* =================================
+                DOCUMENTS (정보 관리)
+            ================================== */}
+
+            {activeMenu === "Documents" ? (
+
+              documentsView === "register" ? (
+
+                /* ============ 등록 화면 ============ */
+
+                <>
+                  <button
+                    onClick={() => {
+                      setDocumentsView("list");
+                      setSelectedFile(null);
+                      setExtractedText("");
+                    }}
+                    className="mb-6 flex cursor-pointer items-center text-sm text-gray-500 hover:text-black"
+                  >
+                    ← 목록으로
+                  </button>
+
+                  <div className="mb-8">
+                    <div className="mb-2 text-sm font-medium text-gray-400">
+                      REGISTER INFORMATION
+                    </div>
+
+                    <h1 className="text-3xl font-bold tracking-tight">
+                      정보 등록
+                    </h1>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                      등록 방식을 선택하고 정보를 등록하세요.
+                    </p>
+                  </div>
+
+                  {/* 등록 방식 선택 카드 */}
+
+                  <div className="mb-6 grid grid-cols-4 gap-3">
+                    <div className="rounded-xl border-2 border-black bg-white p-4">
+                      <div className="mb-2 text-xl">📄</div>
+                      <div className="text-sm font-semibold">
+                        파일 업로드
+                      </div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        PDF, Excel, CSV
+                      </div>
+                    </div>
+
+                    <div className="cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 p-4 opacity-60">
+                      <div className="mb-2 text-xl">📚</div>
+                      <div className="text-sm font-semibold">
+                        일괄 업로드
+                      </div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        준비 중
+                      </div>
+                    </div>
+
+                    <div className="cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 p-4 opacity-60">
+                      <div className="mb-2 text-xl">🔗</div>
+                      <div className="text-sm font-semibold">URL 등록</div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        준비 중
+                      </div>
+                    </div>
+
+                    <div className="cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 p-4 opacity-60">
+                      <div className="mb-2 text-xl">✎</div>
+                      <div className="text-sm font-semibold">
+                        직접 입력
+                      </div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        준비 중
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 파일 업로드 영역 */}
+
+                  <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 text-2xl">
+                      📄
+                    </div>
+
+                    <h2 className="mt-5 text-lg font-semibold">
+                      문서를 업로드하세요
+                    </h2>
+
+                    <p className="mt-2 text-sm text-gray-400">
+                      회사 규정(PDF), 임직원 명부·데이터(Excel) 등을 등록할
+                      수 있습니다.
+                    </p>
+
+                    <input
+                      ref={fileInputRef}
+                      id="pdf-upload"
+                      type="file"
+                      accept="application/pdf,.xlsx,.xls,.csv"
+                      onChange={handleFileChange}
+                      disabled={isUploading || isExtracting}
+                      className="hidden"
+                    />
+
+                    {!selectedFile ? (
+                      <>
+                        <label
+                          htmlFor="pdf-upload"
+                          className="mt-6 inline-block cursor-pointer rounded-xl bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+                        >
+                          파일 선택
+                        </label>
+
+                        <div className="mt-4 text-xs text-gray-400">
+                          PDF, Excel(.xlsx, .xls, .csv) · 최대 10MB
+                        </div>
+                      </>
+                    ) : (
+                      <div className="mx-auto mt-6 max-w-md rounded-xl border border-gray-200 bg-gray-50 p-4 text-left">
+                        <div className="flex items-center justify-between">
+                          <div className="flex min-w-0 items-center">
+                            <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-lg">
+                              📄
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold">
+                                {selectedFile.name}
+                              </div>
+                              <div className="mt-0.5 text-xs text-gray-400">
+                                {(selectedFile.size / 1024 / 1024).toFixed(
+                                  2
+                                )}{" "}
+                                MB
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={handleRemoveFile}
+                            disabled={isUploading || isExtracting}
+                            className="ml-3 shrink-0 cursor-pointer rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={handleUpload}
+                          disabled={isUploading || isExtracting}
+                          className="mt-3 w-full cursor-pointer rounded-lg bg-black py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+                        >
+                          {isUploading
+                            ? "문서 업로드 및 분석 중..."
+                            : isExtracting
+                            ? "텍스트 추출 중..."
+                            : "문서 업로드"}
+                        </button>
+
+                        {(isUploading || isExtracting) && (
+                          <div className="mt-3 flex items-center rounded-lg bg-white p-3">
+                            <div className="mr-2 h-2 w-2 animate-pulse rounded-full bg-black" />
+                            <span className="text-xs text-gray-600">
+                              텍스트 추출 · 청크 분할 · 임베딩 생성 중입니다.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+
+              ) : documentsView === "detail" ? (
+
+                /* ============ 상세 화면 ============ */
+
+                <>
+                  <button
+                    onClick={() => {
+                      setDocumentsView("list");
+                      setSelectedDocument(null);
+                    }}
+                    className="mb-6 flex cursor-pointer items-center text-sm text-gray-500 hover:text-black"
+                  >
+                    ← 목록으로
+                  </button>
+
+                  {isLoadingDetail ? (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-16 text-center text-sm text-gray-400">
+                      불러오는 중...
+                    </div>
+                  ) : selectedDocument ? (
+                    <>
+                      <div className="mb-8 flex items-start justify-between">
+                        <div>
+                          <div className="mb-2 text-sm font-medium text-gray-400">
+                            DOCUMENT DETAIL
+                          </div>
+
+                          <h1 className="text-2xl font-bold tracking-tight">
+                            {selectedDocument.fileName}
+                          </h1>
+
+                          <p className="mt-2 text-sm text-gray-500">
+                            {(selectedDocument.fileSize / 1024 / 1024).toFixed(
+                              2
+                            )}{" "}
+                            MB · {selectedDocument.chunkCount} chunks ·{" "}
+                            {new Date(
+                              selectedDocument.createdAt
+                            ).toLocaleString("ko-KR")}
+                          </p>
+                        </div>
+
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            onClick={() =>
+                              handleDownload(
+                                selectedDocument.id,
+                                selectedDocument.fileName
+                              )
+                            }
+                            disabled={downloadingId === selectedDocument.id}
+                            className="cursor-pointer rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed"
+                          >
+                            다운로드
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              handleDeleteDocument(
+                                selectedDocument.id,
+                                selectedDocument.fileName
+                              )
+                            }
+                            disabled={deletingId === selectedDocument.id}
+                            className="cursor-pointer rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed"
+                          >
+                            {deletingId === selectedDocument.id
+                              ? "삭제 중..."
+                              : "삭제"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <section>
+                        <div className="mb-3 text-sm font-semibold">
+                          추출된 텍스트 (미리보기)
+                        </div>
+
+                        <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                          <div className="max-h-[500px] overflow-y-auto rounded-xl bg-gray-50 p-5">
+                            <pre className="whitespace-pre-wrap text-sm leading-7 text-gray-700">
+                              {selectedDocument.textPreview ||
+                                "미리볼 텍스트가 없습니다."}
+                            </pre>
+                          </div>
+                        </div>
+                      </section>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-16 text-center text-sm text-gray-400">
+                      문서 정보를 불러오지 못했습니다.
+                    </div>
+                  )}
+                </>
+
+              ) : (
+
+                /* ============ 목록 화면 (기본) ============ */
+
+                <>
+                  <div className="mb-8 flex items-start justify-between">
+                    <div>
+                      <div className="mb-2 text-sm font-medium text-gray-400">
+                        INFORMATION MANAGEMENT
+                      </div>
+
+                      <h1 className="text-3xl font-bold tracking-tight">
+                        정보 관리
+                      </h1>
+
+                      <p className="mt-2 text-sm text-gray-500">
+                        AI가 검색할 회사 지식 정보를 등록하고 관리하세요.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setDocumentsView("register")}
+                      className="shrink-0 cursor-pointer rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+                    >
+                      + 정보 등록
+                    </button>
+                  </div>
+
+                  {/* 통계 */}
+
+                  <div className="mb-6 grid grid-cols-3 gap-4">
+                    <div className="rounded-xl border border-gray-200 bg-white p-5">
+                      <div className="text-xs text-gray-400">전체 문서</div>
+                      <div className="mt-2 text-2xl font-bold">
+                        {documents.length}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        Documents
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 bg-white p-5">
+                      <div className="text-xs text-gray-400">처리 완료</div>
+                      <div className="mt-2 text-2xl font-bold">
+                        {documents.length}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        Completed
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 bg-white p-5">
+                      <div className="text-xs text-gray-400">지식 Chunk</div>
+                      <div className="mt-2 text-2xl font-bold">
+                        {documents.reduce(
+                          (sum, d) => sum + (d.chunk_count || 0),
+                          0
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        Chunks
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 검색 + 목록 */}
+
+                  <section>
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="relative flex-1">
+                        <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
+                          ⌕
+                        </div>
+                        <input
+                          type="text"
+                          value={documentSearchQuery}
+                          onChange={(e) =>
+                            setDocumentSearchQuery(e.target.value)
+                          }
+                          placeholder="문서명으로 검색"
+                          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-black"
+                        />
+                      </div>
+
+                      <button
+                        onClick={loadDocuments}
+                        disabled={isLoadingDocuments}
+                        className="shrink-0 cursor-pointer rounded-lg px-3 py-2 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed"
+                      >
+                        {isLoadingDocuments ? "새로고침 중..." : "새로고침"}
+                      </button>
+                    </div>
+
+                    {filteredDocuments.length === 0 ? (
+                      <div className="rounded-2xl border border-gray-200 bg-white p-16 text-center">
+                        <div className="text-4xl">📂</div>
+
+                        <h3 className="mt-5 text-base font-semibold">
+                          {documentSearchQuery
+                            ? "검색 결과가 없습니다."
+                            : "등록된 문서가 없습니다."}
+                        </h3>
+
+                        <p className="mt-2 text-sm text-gray-400">
+                          {documentSearchQuery
+                            ? "다른 검색어로 시도해보세요."
+                            : "우측 상단의 [정보 등록] 버튼으로 문서를 등록하세요."}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {filteredDocuments.map((doc) => (
+                          <button
+                            key={doc.id}
+                            onClick={() => loadDocumentDetail(doc.id)}
+                            className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 text-left transition hover:border-gray-400 hover:shadow-sm"
+                          >
+                            <div className="flex items-center">
+                              <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-xl">
+                                📄
+                              </div>
+
+                              <div>
+                                <div className="text-sm font-semibold">
+                                  {doc.file_name}
+                                </div>
+
+                                <div className="mt-1 text-xs text-gray-400">
+                                  {(doc.file_size / 1024 / 1024).toFixed(2)}{" "}
+                                  MB
+                                  {" · "}
+                                  {doc.chunk_count} chunks
+                                  {" · "}
+                                  {new Date(
+                                    doc.created_at
+                                  ).toLocaleString("ko-KR")}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <div className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-600">
+                                처리 완료
+                              </div>
+                              <span className="text-gray-300">→</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </>
+              )
+
+            ) : activeMenu === "AI Search" ? (
+
+              /* =================================
+                 AI SEARCH
+              ================================== */
+
+              <>
+                <div className="mb-8">
+                  <div className="mb-2 text-sm font-medium text-gray-400">
+                    AI KNOWLEDGE HUB
+                  </div>
+
+                  <h1 className="text-3xl font-bold tracking-tight">
+                    무엇을 찾고 계신가요?
+                  </h1>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    회사의 문서와 지식을 AI에게 질문해보세요.
+                  </p>
+                </div>
+
+                {/* 추천 질문 */}
+
+                <section className="mt-8">
+                  <div className="mb-4 text-sm font-semibold">추천 질문</div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    {recommendedQuestions.map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => handleRecommendedQuestion(item)}
+                        className="rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-gray-400 hover:shadow-sm"
+                      >
+                        <div className="mb-3 text-lg">✦</div>
+
+                        <div className="text-sm font-semibold">{item}</div>
+
+                        <div className="mt-2 text-xs text-gray-400">
+                          AI에게 질문하기 →
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+                <br></br>
+                {/* 검색 */}
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-center">
+                    <div className="px-4 text-xl text-gray-400">⌕</div>
+
+                    <input
+                      type="text"
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleSearch();
+                        }
+                      }}
+                      placeholder="예: 출장 숙박비 기준을 알려줘"
+                      className="flex-1 bg-transparent px-2 py-4 text-base outline-none placeholder:text-gray-400"
+                    />
+
+                    <button
+                      onClick={handleSearch}
+                      disabled={isLoading}
+                      className="rounded-xl bg-black px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+                    >
+                      {isLoading ? "검색 중..." : "검색"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* AI 답변 */}
+
+                {answer && (
+                  <section className="mt-8">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="text-sm font-semibold">AI 답변</div>
+
+                      <div className="text-xs text-gray-400">Gemini</div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
+                      <div className="whitespace-pre-wrap text-[15px] leading-7 text-gray-700">
+                        {answer}
+                      </div>
+
+                      <div className="mt-7 border-t border-gray-100 pt-5">
+                        <div className="mb-2 text-xs font-semibold text-gray-500">
+                          참고 문서
+                        </div>
+
+                        {sources.length === 0 ? (
+                          <div className="text-xs text-gray-400">
+                            참고한 문서가 없습니다.
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {sources.map((source) => (
+                              <button
+                                key={source.id}
+                                onClick={() =>
+                                  handleDownload(source.id, source.fileName)
+                                }
+                                disabled={downloadingId === source.id}
+                                className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                📄 {source.fileName}
+                                <span className="text-gray-400">↓</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* 최근 질문 */}
+
+                {history.length > 0 && (
+                  <section className="mt-10">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="text-sm font-semibold">최근 질문</div>
+
+                      <button
+                        onClick={() => {
+                          setActiveMenu("History");
+                          loadHistory();
+                        }}
+                        className="cursor-pointer text-xs text-gray-400 hover:text-black"
+                      >
+                        전체 보기 →
+                      </button>
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                      {history.slice(0, 3).map((item, index) => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleHistoryItemClick(item)}
+                          className={`flex w-full cursor-pointer items-center justify-between px-6 py-5 text-left hover:bg-gray-50 ${
+                            index !== 2 &&
+                            index !== history.slice(0, 3).length - 1
+                              ? "border-b border-gray-100"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <div className="mr-4 flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500">
+                              ⌕
+                            </div>
+
+                            <span className="truncate text-sm text-gray-700">
+                              {item.question}
+                            </span>
+                          </div>
+
+                          <span className="ml-4 shrink-0 text-gray-300">
+                            →
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
+
+            ) : activeMenu === "History" ? (
+
+              /* =================================
+                 HISTORY
+              ================================== */
+
+              <>
+                <div className="mb-8">
+                  <div className="mb-2 text-sm font-medium text-gray-400">
+                    QUESTION HISTORY
+                  </div>
+
+                  <h1 className="text-3xl font-bold tracking-tight">
+                    질문 기록
+                  </h1>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    {currentUser?.role === "admin"
+                      ? "전체 임직원의 질문 기록입니다. 개인 식별 정보는 표시되지 않습니다."
+                      : "지금까지 AI에게 물어본 질문과 답변을 확인하세요."}
+                  </p>
+                </div>
+
+{history.length > 0 && (
+                  <div className="relative mb-6">
+                    <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
+                      ⌕
+                    </div>
+                    <input
+                      type="text"
+                      value={historySearchQuery}
+                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      placeholder="질문 또는 답변 내용으로 검색"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-black"
+                    />
+                  </div>
+                )}
+
+                {isLoadingHistory ? (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-16 text-center text-sm text-gray-400">
+                    불러오는 중...
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-16 text-center">
+                    <div className="text-4xl">💬</div>
+                    <h3 className="mt-5 text-base font-semibold">
+                      아직 질문 기록이 없습니다.
+                    </h3>
+                    <p className="mt-2 text-sm text-gray-400">
+                      AI Search에서 질문을 해보세요.
+                    </p>
+                  </div>
+                ) : filteredHistory.length === 0 ? (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-16 text-center">
+                    <div className="text-4xl">🔍</div>
+                    <h3 className="mt-5 text-base font-semibold">
+                      검색 결과가 없습니다.
+                    </h3>
+                    <p className="mt-2 text-sm text-gray-400">
+                      다른 검색어로 시도해보세요.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredHistory.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => handleHistoryItemClick(item)}
+                        className="block w-full rounded-2xl border border-gray-200 bg-white p-6 text-left transition hover:border-gray-400 hover:shadow-sm"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center">
+                            <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500">
+                              ⌕
+                            </div>
+
+                            <span className="text-sm font-semibold text-gray-900">
+                              {item.question}
+                            </span>
+                          </div>
+
+                          <span className="whitespace-nowrap text-xs text-gray-400">
+                            {new Date(item.created_at).toLocaleString(
+                              "ko-KR"
+                            )}
+                          </span>
+                        </div>
+
+                        <p className="mt-3 line-clamp-2 pl-11 text-sm text-gray-500">
+                          {item.answer}
+                        </p>
+
+                        {item.sources && item.sources.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5 pl-11">
+                            {item.sources.map((source) => (
+                              <span
+                                key={source.id}
+                                className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-500"
+                              >
+                                📄 {source.fileName}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+
+            ) : activeMenu === "Dashboard" ? (
+
+              /* =================================
+                 DASHBOARD
+              ================================== */
+
+              <>
+                <div className="mb-8">
+                  <div className="mb-2 text-sm font-medium text-gray-400">
+                    OVERVIEW
+                  </div>
+
+                  <h1 className="text-3xl font-bold tracking-tight">
+                    대시보드
+                  </h1>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    AI Knowledge Hub의 전체 현황을 확인하세요.
+                  </p>
+                </div>
+
+                {/* 통계 카드 */}
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-xl border border-gray-200 bg-white p-5">
+                    <div className="text-xs text-gray-400">전체 문서</div>
+                    <div className="mt-2 text-2xl font-bold">
+                      {documents.length}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-400">
+                      Documents
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 bg-white p-5">
+                    <div className="text-xs text-gray-400">등록된 청크</div>
+                    <div className="mt-2 text-2xl font-bold">
+                      {documents.reduce(
+                        (sum, d) => sum + (d.chunk_count || 0),
+                        0
+                      )}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-400">Chunks</div>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 bg-white p-5">
+                    <div className="text-xs text-gray-400">총 질문 수</div>
+                    <div className="mt-2 text-2xl font-bold">
+                      {history.length}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-400">
+                      Questions
+                    </div>
+                  </div>
+                </div>
+
+                {/* 최근 7일 질문 추이 */}
+
+                <section className="mt-8">
+                  <div className="mb-4">
+                    <h2 className="text-sm font-semibold">
+                      최근 7일 질문 추이
+                    </h2>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                    {(() => {
+                      const weeklyCounts = getWeeklyQuestionCounts();
+                      const maxCount = Math.max(
+                        ...weeklyCounts.map((d) => d.count),
+                        1
+                      );
+
+                      return (
+                        <div className="flex h-40 items-end justify-between gap-3">
+                          {weeklyCounts.map((day, index) => (
+                            <div
+                              key={index}
+                              className="flex flex-1 flex-col items-center"
+                            >
+                              <div className="mb-2 text-xs font-semibold text-gray-600">
+                                {day.count}
+                              </div>
+                              <div className="flex h-full w-full items-end">
+                                <div
+                                  className="w-full rounded-t-md bg-black transition-all"
+                                  style={{
+                                    height: `${
+                                      (day.count / maxCount) * 100
+                                    }%`,
+                                    minHeight: day.count > 0 ? "4px" : "0",
+                                  }}
+                                />
+                              </div>
+                              <div className="mt-2 text-xs text-gray-400">
+                                {day.label}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </section>
+
+                {/* 최근 업로드 문서 + 최근 질문 */}
+
+                <div className="mt-8 grid grid-cols-2 gap-6">
+                  {/* 최근 업로드 문서 */}
+
+                  <section>
+                    <div className="mb-4 flex items-center justify-between">
+                      <h2 className="text-sm font-semibold">
+                        최근 업로드 문서
+                      </h2>
+                      <button
+                        onClick={enterDocumentsMenu}
+                        className="cursor-pointer text-xs text-gray-400 hover:text-black"
+                      >
+                        전체 보기 →
+                      </button>
+                    </div>
+
+                    {documents.length === 0 ? (
+                      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">
+                        등록된 문서가 없습니다.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {documents.slice(0, 3).map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center rounded-xl border border-gray-200 bg-white p-4"
+                          >
+                            <div className="mr-3 flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-base">
+                              📄
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold">
+                                {doc.file_name}
+                              </div>
+                              <div className="mt-0.5 text-xs text-gray-400">
+                                {new Date(
+                                  doc.created_at
+                                ).toLocaleDateString("ko-KR")}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* 최근 질문 */}
+
+                  <section>
+                    <div className="mb-4 flex items-center justify-between">
+                      <h2 className="text-sm font-semibold">최근 질문</h2>
+                      <button
+                        onClick={() => {
+                          setActiveMenu("History");
+                          loadHistory();
+                        }}
+                        className="cursor-pointer text-xs text-gray-400 hover:text-black"
+                      >
+                        전체 보기 →
+                      </button>
+                    </div>
+
+                    {history.length === 0 ? (
+                      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">
+                        아직 질문 기록이 없습니다.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {history.slice(0, 3).map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => handleHistoryItemClick(item)}
+                            className="flex w-full cursor-pointer items-center rounded-xl border border-gray-200 bg-white p-4 text-left hover:border-gray-400"
+                          >
+                            <div className="mr-3 flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500">
+                              ⌕
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold">
+                                {item.question}
+                              </div>
+                              <div className="mt-0.5 text-xs text-gray-400">
+                                {new Date(
+                                  item.created_at
+                                ).toLocaleDateString("ko-KR")}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </div>
+              </>
+
+            ) : (
+
+              /* =================================
+                 아직 구현하지 않은 메뉴
+              ================================== */
+
+              <div className="flex min-h-[500px] items-center justify-center">
+                <div className="text-center">
+                  <div className="text-5xl">🚧</div>
+
+                  <h1 className="mt-5 text-xl font-bold">
+                    {menuLabels[activeMenu] || activeMenu}
+                  </h1>
+
+                  <p className="mt-2 text-sm text-gray-400">
+                    이 화면은 다음 단계에서 구현합니다.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* =====================================
+          질문 기록 상세 팝업
+      ====================================== */}
+
+      {selectedHistoryItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setSelectedHistoryItem(null)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-7 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex items-start justify-between">
+              <div>
+                <div className="text-xs font-medium text-gray-400">
+                  {new Date(selectedHistoryItem.created_at).toLocaleString(
+                    "ko-KR"
+                  )}
+                </div>
+                <h2 className="mt-1 text-lg font-bold">
+                  {selectedHistoryItem.question}
+                </h2>
+              </div>
+
+              <button
+                onClick={() => setSelectedHistoryItem(null)}
+                className="cursor-pointer rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="whitespace-pre-wrap rounded-xl bg-gray-50 p-5 text-[15px] leading-7 text-gray-700">
+              {selectedHistoryItem.answer}
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-2 text-xs font-semibold text-gray-500">
+                참고 문서
+              </div>
+
+              {selectedHistoryItem.sources &&
+              selectedHistoryItem.sources.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedHistoryItem.sources.map((source) => (
+                    <button
+                      key={source.id}
+                      onClick={() =>
+                        handleDownload(source.id, source.fileName)
+                      }
+                      disabled={downloadingId === source.id}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      📄 {source.fileName}
+                      <span className="text-gray-400">↓</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-400">
+                  참고한 문서가 없습니다.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 border-t border-gray-100 pt-5">
+              <button
+                onClick={() => {
+                  setQuestion(selectedHistoryItem.question);
+                  setAnswer(selectedHistoryItem.answer);
+                  setSources(selectedHistoryItem.sources || []);
+                  setActiveMenu("AI Search");
+                  setSelectedHistoryItem(null);
+                }}
+                className="cursor-pointer text-xs font-semibold text-gray-500 hover:text-black"
+              >
+                AI Search에서 이어서 질문하기 →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
