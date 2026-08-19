@@ -13,6 +13,7 @@ interface DocumentDetail {
   createdAt: string;
   textPreview: string;
   hasFile: boolean;
+  sourceUrl: string | null;
 }
 
 export default function DocumentDetailPage() {
@@ -264,7 +265,7 @@ export default function DocumentDetailPage() {
                   </p>
                 </div>
 
-                <div className="flex shrink-0 gap-2">
+  <div className="flex shrink-0 gap-2">
                   {document.hasFile && (
                     <button
                       onClick={() =>
@@ -276,7 +277,16 @@ export default function DocumentDetailPage() {
                       다운로드
                     </button>
                   )}
-
+                  {document.sourceUrl && (
+                    <a
+                      href={document.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex cursor-pointer items-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                    >
+                      원본 페이지 열기 ↗
+                    </a>
+                  )}
                   {!document.hasFile && user?.role === "admin" && (
                     <button
                       onClick={handleStartEdit}

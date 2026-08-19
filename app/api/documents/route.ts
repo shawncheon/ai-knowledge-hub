@@ -5,6 +5,8 @@ import * as XLSX from "xlsx";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
 
 export const runtime = "nodejs";
 
@@ -177,12 +179,307 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+    } else if (registerType === "url") {
+      // =========================================
+      // 2-C. URL 등록
+      // =========================================
+      const sourceUrl = (formData.get("url") as string | null)?.trim();
+
+      if (!sourceUrl) {
+        return NextResponse.json(
+          { success: false, error: "URL을 입력해주세요." },
+          { status: 400 }
+        );
+      }
+
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(sourceUrl);
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+          throw new Error("invalid protocol");
+        }
+      } catch {
+        return NextResponse.json(
+          { success: false, error: "올바른 URL 형식이 아닙니다." },
+          { status: 400 }
+        );
+      }
+
+      let pageResponse: Response;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        pageResponse = await fetch(sourceUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; InternalKnowledgeBot/1.0)",
+          },
+          signal: controller.signal,
+          redirect: "follow",
+        });
+
+        clearTimeout(timeout);
+      } catch {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "페이지에 접속하지 못했습니다. URL을 다시 확인해주세요.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!pageResponse.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `페이지를 가져오지 못했습니다. (상태 코드: ${pageResponse.status})`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const html = await pageResponse.text();
+
+      let extractedTitle = sourceUrl;
+      let extractedText = "";
+
+      try {
+        const dom = new JSDOM(html, { url: sourceUrl });
+        const article = new Readability(dom.window.document).parse();
+
+        if (article?.textContent) {
+          extractedText = article.textContent.trim();
+          extractedTitle = article.title || sourceUrl;
+        }
+      } catch {
+        // 아래 폴백 처리로 이어짐
+      }
+
+      if (!extractedText || extractedText.length < 50) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "페이지에서 본문 내용을 추출하지 못했습니다. 로그인이 필요하거나, 자바스크립트로 렌더링되는 페이지일 수 있습니다.",
+          },
+          { status: 400 }
+        );
+      }
+
+      fullText = extractedText;
+      chunks = splitIntoChunks(fullText);
+      fileName = extractedTitle;
+      fileSize = Buffer.byteLength(extractedText, "utf-8");
+      storagePath = null;
+
+      if (chunks.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "등록할 내용이 너무 짧습니다." },
+          { status: 400 }
+        );
+      }
+    } else if (registerType === "url") {
+      // =========================================
+      // 2-C. URL 등록
+      // =========================================
+      const sourceUrl = (formData.get("url") as string | null)?.trim();
+
+      if (!sourceUrl) {
+        return NextResponse.json(
+          { success: false, error: "URL을 입력해주세요." },
+          { status: 400 }
+        );
+      }
+
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(sourceUrl);
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+          throw new Error("invalid protocol");
+        }
+      } catch {
+        return NextResponse.json(
+          { success: false, error: "올바른 URL 형식이 아닙니다." },
+          { status: 400 }
+        );
+      }
+
+      let pageResponse: Response;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        pageResponse = await fetch(sourceUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; InternalKnowledgeBot/1.0)",
+          },
+          signal: controller.signal,
+          redirect: "follow",
+        });
+
+        clearTimeout(timeout);
+      } catch {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "페이지에 접속하지 못했습니다. URL을 다시 확인해주세요.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!pageResponse.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `페이지를 가져오지 못했습니다. (상태 코드: ${pageResponse.status})`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const html = await pageResponse.text();
+
+      let extractedTitle = sourceUrl;
+      let extractedText = "";
+
+      try {
+        const dom = new JSDOM(html, { url: sourceUrl });
+        const article = new Readability(dom.window.document).parse();
+
+        if (article?.textContent) {
+          extractedText = article.textContent.trim();
+          extractedTitle = article.title || sourceUrl;
+        }
+      } catch {
+        // 아래 폴백 처리로 이어짐
+      }
+
+      if (!extractedText || extractedText.length < 50) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "페이지에서 본문 내용을 추출하지 못했습니다. 로그인이 필요하거나, 자바스크립트로 렌더링되는 페이지일 수 있습니다.",
+          },
+          { status: 400 }
+        );
+      }
+
+      fullText = extractedText;
+      chunks = splitIntoChunks(fullText);
+      fileName = extractedTitle;
+      fileSize = Buffer.byteLength(extractedText, "utf-8");
+      storagePath = null;
+
+      if (chunks.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "등록할 내용이 너무 짧습니다." },
+          { status: 400 }
+        );
+      }
+      } else if (registerType === "url") {
+      // =========================================
+      // 2-C. URL 등록
+      // =========================================
+      const sourceUrl = (formData.get("url") as string | null)?.trim();
+
+      if (!sourceUrl) {
+        return NextResponse.json(
+          { success: false, error: "URL을 입력해주세요." },
+          { status: 400 }
+        );
+      }
+let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(sourceUrl);
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+          throw new Error("invalid protocol");
+        }
+      } catch {
+        return NextResponse.json(
+          { success: false, error: "올바른 URL 형식이 아닙니다." },
+          { status: 400 }
+        );
+      }
+   let pageResponse: Response;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        pageResponse = await fetch(sourceUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; InternalKnowledgeBot/1.0)",
+          },
+          signal: controller.signal,
+          redirect: "follow",
+        });
+    clearTimeout(timeout);
+      } catch {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "페이지에 접속하지 못했습니다. URL을 다시 확인해주세요.",
+          },
+          { status: 400 }
+        );
+      }
+   if (!pageResponse.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `페이지를 가져오지 못했습니다. (상태 코드: ${pageResponse.status})`,
+          },
+          { status: 400 }
+        );
+      }
+      const html = await pageResponse.text();
+
+      let extractedTitle = sourceUrl;
+      let extractedText = "";
+
+      try {
+        const dom = new JSDOM(html, { url: sourceUrl });
+        const article = new Readability(dom.window.document).parse();
+
+        if (article?.textContent) {
+          extractedText = article.textContent.trim();
+          extractedTitle = article.title || sourceUrl;
+        }
+      } catch {
+        // 아래 폴백 처리로 이어짐
+      } 
+       if (!extractedText || extractedText.length < 50) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "페이지에서 본문 내용을 추출하지 못했습니다. 로그인이 필요하거나, 자바스크립트로 렌더링되는 페이지일 수 있습니다.",
+          },
+          { status: 400 }
+        );
+      }
+        fullText = extractedText;
+      chunks = splitIntoChunks(fullText);
+      fileName = extractedTitle;
+      fileSize = Buffer.byteLength(extractedText, "utf-8");
+      storagePath = null;
+
+      if (chunks.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "등록할 내용이 너무 짧습니다." },
+          { status: 400 }
+        );
+      }
     } else {
       // =========================================
       // 2-B. 파일(PDF/Excel) 업로드
       // =========================================
       const file = formData.get("file") as File | null;
-
       if (!file) {
         return NextResponse.json(
           { success: false, error: "파일이 없습니다." },
@@ -309,7 +606,11 @@ export async function POST(req: Request) {
     // =========================================
     // 4. Supabase에 문서 메타데이터 저장
     // =========================================
-    const { data: documentRow, error: docError } = await supabaseAdmin
+const sourceUrlToSave =
+      registerType === "url"
+        ? ((formData.get("url") as string | null)?.trim() ?? null)
+        : null;
+        const { data: documentRow, error: docError } = await supabaseAdmin
       .from("documents")
       .insert({
         id: documentId,
@@ -318,6 +619,7 @@ export async function POST(req: Request) {
         full_text: fullText,
         chunk_count: chunks.length,
         storage_path: storagePath,
+        source_url: sourceUrlToSave,
       })
       .select()
       .single();
@@ -419,3 +721,4 @@ export async function GET() {
     );
   }
 }
+

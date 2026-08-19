@@ -28,6 +28,10 @@ export default function DocumentRegisterPage() {
   const [textContent, setTextContent] = useState("");
   const [isSubmittingText, setIsSubmittingText] = useState(false);
 
+  // URL 등록 상태
+  const [urlInput, setUrlInput] = useState("");
+  const [isSubmittingUrl, setIsSubmittingUrl] = useState(false);
+
   useEffect(() => {
     if (!isLoadingUser && user && user.role !== "admin") {
       router.replace("/");
@@ -174,7 +178,73 @@ export default function DocumentRegisterPage() {
   const batchDone =
     batchFiles.length > 0 &&
     batchFiles.every((f) => f.status === "success" || f.status === "error");
+  // =========================
+  // URL 등록
+  // =========================
+  const handleSubmitUrl = async () => {
+    const trimmedUrl = urlInput.trim();
 
+    if (!trimmedUrl) {
+      alert("URL을 입력해주세요.");
+      return;
+    }
+
+    try {
+      const parsed = new URL(trimmedUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        throw new Error("invalid");
+      }
+    } catch {
+      alert("올바른 URL 형식이 아닙니다. (예: https://example.com)");
+      return;
+    }
+
+    setIsSubmittingUrl(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("type", "url");
+      formData.append("url", trimmedUrl);
+
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+
+      let data: {
+        success?: boolean;
+        document?: { fileName: string };
+        error?: string;
+      };
+
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        data = { error: await response.text() };
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "URL 등록에 실패했습니다.");
+      }
+
+      alert(
+        `정보 등록이 완료되었습니다.\n\n제목: ${
+          data.document?.fileName || trimmedUrl
+        }`
+      );
+
+      router.push("/documents");
+    } catch (error) {
+      console.error("URL Register Error:", error);
+      alert(
+        error instanceof Error ? error.message : "등록 중 오류가 발생했습니다."
+      );
+    } finally {
+      setIsSubmittingUrl(false);
+    }
+  };
   // =========================
   // 직접 입력
   // =========================
@@ -259,7 +329,7 @@ export default function DocumentRegisterPage() {
       desc: "PDF, Excel, CSV (여러 개 가능)",
       enabled: true,
     },
-    { key: "url", icon: "🔗", title: "URL 등록", desc: "준비 중", enabled: false },
+      { key: "url", icon: "🔗", title: "URL 등록", desc: "웹페이지를 그대로 등록", enabled: true },
     {
       key: "text",
       icon: "✎",
@@ -486,7 +556,46 @@ export default function DocumentRegisterPage() {
           )}
         </div>
       )}
+      {/* ============ URL 등록 폼 ============ */}
 
+      {method === "url" && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-8">
+          <div className="mb-5">
+            <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+              웹페이지 주소
+            </label>
+            <input
+              type="text"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder="https://example.com/notice/123"
+              disabled={isSubmittingUrl}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-black disabled:cursor-not-allowed disabled:bg-gray-50"
+            />
+            <p className="mt-2 text-xs text-gray-400">
+              공개적으로 접근 가능한 페이지만 등록할 수 있습니다. 로그인이
+              필요한 페이지는 지원하지 않습니다.
+            </p>
+          </div>
+
+          <button
+            onClick={handleSubmitUrl}
+            disabled={isSubmittingUrl}
+            className="w-full cursor-pointer rounded-lg bg-black py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+          >
+            {isSubmittingUrl ? "페이지 가져오는 중..." : "정보 등록"}
+          </button>
+
+          {isSubmittingUrl && (
+            <div className="mt-3 flex items-center rounded-lg bg-gray-50 p-3">
+              <div className="mr-2 h-2 w-2 animate-pulse rounded-full bg-black" />
+              <span className="text-xs text-gray-600">
+                페이지 내용 추출 · 청크 분할 · 임베딩 생성 중입니다.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       {/* ============ 직접 입력 폼 ============ */}
 
       {method === "text" && (

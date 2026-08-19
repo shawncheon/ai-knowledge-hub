@@ -138,7 +138,7 @@ export async function GET(
     const { data: doc, error } = await supabaseAdmin
       .from("documents")
       .select(
-        "id, file_name, file_size, chunk_count, created_at, full_text, storage_path"
+        "id, file_name, file_size, chunk_count, created_at, full_text, storage_path, source_url"
       )
       .eq("id", id)
       .single();
@@ -160,6 +160,7 @@ export async function GET(
         createdAt: doc.created_at,
         textPreview: (doc.full_text || "").slice(0, 3000),
         hasFile: !!doc.storage_path,
+        sourceUrl: doc.source_url || null,
       },
     });
   } catch (error) {
