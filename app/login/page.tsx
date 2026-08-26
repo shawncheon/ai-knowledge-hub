@@ -24,11 +24,10 @@ export default function LoginPage() {
           password,
         });
 
-if (loginError) {
+      if (loginError) {
         throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
       }
 
-      // 로그인한 사용자의 role을 확인해서 역할별 기본 화면으로 이동
       const meResponse = await fetch("/api/me");
       const meData = await meResponse.json();
 
@@ -41,7 +40,7 @@ if (loginError) {
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "로그인 중 오류가 발생했습니다."
+        err instanceof Error ? err.message : "로그인 중 오류가 발생했습니다.",
       );
     } finally {
       setIsLoading(false);
@@ -49,23 +48,19 @@ if (loginError) {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-
+    <main className="flex min-h-screen items-center justify-center bg-[#F4F6FA] px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-[#E2E6EF] bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-black text-sm font-bold text-white">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#2452D9] text-sm font-bold text-white">
             AI
           </div>
-          <h1 className="text-lg font-bold">사내 정보 센터</h1>
-          <p className="mt-1 text-xs text-gray-400">
-            AI Knowledge Management
-          </p>
+          <h1 className="text-lg font-bold text-[#1A2233]">사내 정보 센터</h1>
+          <p className="mt-1 text-xs text-[#8891A5]">AI Knowledge Management</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
-
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+            <label className="mb-1.5 block text-xs font-semibold text-[#4B5468]">
               이메일
             </label>
             <input
@@ -74,12 +69,12 @@ if (loginError) {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="you@company.com"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-black"
+              className="w-full rounded-lg border border-[#E2E6EF] px-3 py-2.5 text-sm outline-none focus:border-[#2452D9]"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+            <label className="mb-1.5 block text-xs font-semibold text-[#4B5468]">
               비밀번호
             </label>
             <input
@@ -88,7 +83,7 @@ if (loginError) {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••••"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-black"
+              className="w-full rounded-lg border border-[#E2E6EF] px-3 py-2.5 text-sm outline-none focus:border-[#2452D9]"
             />
           </div>
 
@@ -101,13 +96,11 @@ if (loginError) {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full cursor-pointer rounded-lg bg-black py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full cursor-pointer rounded-lg bg-[#2452D9] py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? "로그인 중..." : "로그인"}
           </button>
-
         </form>
-
       </div>
     </main>
   );
