@@ -200,7 +200,7 @@ export default function SettingsPage() {
 
         <button
           onClick={() => setIsFormOpen((prev) => !prev)}
-          className="shrink-0 cursor-pointer rounded-xl bg-[#2452D9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+          className="shrink-0 cursor-pointer rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
         >
           {isFormOpen ? "닫기" : "+ 직원 추가"}
         </button>

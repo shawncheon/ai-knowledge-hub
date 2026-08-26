@@ -177,9 +177,10 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {documents.slice(0, 3).map((doc) => (
-                <div
+                <Link
                   key={doc.id}
-                  className="flex items-center rounded-xl border border-gray-200 bg-white p-4"
+                  href={`/documents/${doc.id}`}
+                  className="flex cursor-pointer items-center rounded-xl border border-gray-200 bg-white p-4 transition hover:border-gray-400"
                 >
                   <div className="mr-3 flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-base">
                     📄
@@ -192,7 +193,7 @@ export default function DashboardPage() {
                       {new Date(doc.created_at).toLocaleDateString("ko-KR")}
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

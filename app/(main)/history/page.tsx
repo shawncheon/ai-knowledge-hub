@@ -36,7 +36,7 @@ export default function HistoryPage() {
     loadHistory();
   }, []);
 
-const searchTerms = searchQuery
+  const searchTerms = searchQuery
     .toLowerCase()
     .split(/\s+/)
     .filter((term) => term.length > 0);
@@ -44,8 +44,7 @@ const searchTerms = searchQuery
   const filteredHistory = history.filter((item) => {
     if (searchTerms.length === 0) return true;
 
-    const combinedText =
-      `${item.question} ${item.answer}`.toLowerCase();
+    const combinedText = `${item.question} ${item.answer}`.toLowerCase();
 
     // 검색어의 모든 단어가 (순서 상관없이) 포함되어 있으면 매칭
     return searchTerms.every((term) => combinedText.includes(term));
@@ -110,7 +109,7 @@ const searchTerms = searchQuery
             <button
               key={item.id}
               onClick={() => setSelectedHistoryItem(item)}
-              className="block w-full rounded-2xl border border-gray-200 bg-white p-6 text-left transition hover:border-gray-400 hover:shadow-sm"
+              className="block w-full cursor-pointer rounded-2xl border border-gray-200 bg-white p-6 text-left transition hover:border-gray-400 hover:shadow-sm"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center">
