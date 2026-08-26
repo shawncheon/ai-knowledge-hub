@@ -72,7 +72,7 @@ export default function DashboardPage() {
       const label = d.toLocaleDateString("ko-KR", { weekday: "short" });
       const dateStr = d.toDateString();
       const count = history.filter(
-        (h) => new Date(h.created_at).toDateString() === dateStr
+        (h) => new Date(h.created_at).toDateString() === dateStr,
       ).length;
       days.push({ label, count });
     }
@@ -143,7 +143,7 @@ export default function DashboardPage() {
                   {day.count}
                 </div>
                 <div
-                  className="w-full rounded-t-md bg-black transition-all"
+                  className="w-full rounded-t-md bg-[#2452D9] transition-all"
                   style={{
                     height: `${(day.count / maxCount) * 100}%`,
                     minHeight: day.count > 0 ? "4px" : "0",

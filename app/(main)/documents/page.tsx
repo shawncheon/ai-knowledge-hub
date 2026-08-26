@@ -47,7 +47,7 @@ export default function DocumentsListPage() {
   }, []);
 
   const filteredDocuments = documents.filter((doc) =>
-    doc.file_name.toLowerCase().includes(searchQuery.toLowerCase())
+    doc.file_name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   if (isLoadingUser || (user && user.role !== "admin")) {
@@ -73,7 +73,7 @@ export default function DocumentsListPage() {
 
         <Link
           href="/documents/register"
-          className="shrink-0 cursor-pointer rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+          className="shrink-0 cursor-pointer rounded-xl bg-[#2452D9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1D3FB0]"
         >
           + 정보 등록
         </Link>
@@ -156,9 +156,7 @@ export default function DocumentsListPage() {
                     📄
                   </div>
                   <div>
-                    <div className="text-sm font-semibold">
-                      {doc.file_name}
-                    </div>
+                    <div className="text-sm font-semibold">{doc.file_name}</div>
                     <div className="mt-1 text-xs text-gray-400">
                       {(doc.file_size / 1024 / 1024).toFixed(2)} MB
                       {" · "}

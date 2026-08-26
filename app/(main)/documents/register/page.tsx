@@ -62,7 +62,7 @@ export default function DocumentRegisterPage() {
   // 파일 업로드 (여러 개 가능)
   // =========================
   const handleBatchFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
@@ -117,8 +117,8 @@ export default function DocumentRegisterPage() {
 
       setBatchFiles((prev) =>
         prev.map((item, idx) =>
-          idx === i ? { ...item, status: "uploading" } : item
-        )
+          idx === i ? { ...item, status: "uploading" } : item,
+        ),
       );
 
       try {
@@ -147,8 +147,8 @@ export default function DocumentRegisterPage() {
 
         setBatchFiles((prev) =>
           prev.map((item, idx) =>
-            idx === i ? { ...item, status: "success" } : item
-          )
+            idx === i ? { ...item, status: "success" } : item,
+          ),
         );
       } catch (error) {
         setBatchFiles((prev) =>
@@ -160,8 +160,8 @@ export default function DocumentRegisterPage() {
                   errorMessage:
                     error instanceof Error ? error.message : "업로드 실패",
                 }
-              : item
-          )
+              : item,
+          ),
         );
       }
     }
@@ -170,11 +170,9 @@ export default function DocumentRegisterPage() {
   };
 
   const batchSuccessCount = batchFiles.filter(
-    (f) => f.status === "success"
+    (f) => f.status === "success",
   ).length;
-  const batchErrorCount = batchFiles.filter(
-    (f) => f.status === "error"
-  ).length;
+  const batchErrorCount = batchFiles.filter((f) => f.status === "error").length;
   const batchDone =
     batchFiles.length > 0 &&
     batchFiles.every((f) => f.status === "success" || f.status === "error");
@@ -232,14 +230,14 @@ export default function DocumentRegisterPage() {
       alert(
         `정보 등록이 완료되었습니다.\n\n제목: ${
           data.document?.fileName || trimmedUrl
-        }`
+        }`,
       );
 
       router.push("/documents");
     } catch (error) {
       console.error("URL Register Error:", error);
       alert(
-        error instanceof Error ? error.message : "등록 중 오류가 발생했습니다."
+        error instanceof Error ? error.message : "등록 중 오류가 발생했습니다.",
       );
     } finally {
       setIsSubmittingUrl(false);
@@ -293,14 +291,14 @@ export default function DocumentRegisterPage() {
       alert(
         `정보 등록이 완료되었습니다.\n\n제목: ${
           data.document?.fileName || textTitle
-        }`
+        }`,
       );
 
       router.push("/documents");
     } catch (error) {
       console.error("Text Register Error:", error);
       alert(
-        error instanceof Error ? error.message : "등록 중 오류가 발생했습니다."
+        error instanceof Error ? error.message : "등록 중 오류가 발생했습니다.",
       );
     } finally {
       setIsSubmittingText(false);
@@ -329,7 +327,13 @@ export default function DocumentRegisterPage() {
       desc: "PDF, Excel, CSV (여러 개 가능)",
       enabled: true,
     },
-      { key: "url", icon: "🔗", title: "URL 등록", desc: "웹페이지를 그대로 등록", enabled: true },
+    {
+      key: "url",
+      icon: "🔗",
+      title: "URL 등록",
+      desc: "웹페이지를 그대로 등록",
+      enabled: true,
+    },
     {
       key: "text",
       icon: "✎",
@@ -377,8 +381,8 @@ export default function DocumentRegisterPage() {
               !card.enabled
                 ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-60"
                 : method === card.key
-                ? "cursor-pointer border-2 border-black bg-white"
-                : "cursor-pointer border-gray-200 bg-white hover:border-gray-400"
+                  ? "cursor-pointer border-2 border-black bg-white"
+                  : "cursor-pointer border-gray-200 bg-white hover:border-gray-400"
             }`}
           >
             <div className="mb-2 text-xl">{card.icon}</div>
@@ -417,7 +421,7 @@ export default function DocumentRegisterPage() {
             <>
               <label
                 htmlFor="batch-upload"
-                className="mt-6 inline-block cursor-pointer rounded-xl bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+                className="mt-6 inline-block cursor-pointer rounded-xl bg-[#2452D9] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1D3FB0]"
               >
                 파일 선택
               </label>
@@ -487,10 +491,10 @@ export default function DocumentRegisterPage() {
                           item.status === "success"
                             ? "text-green-600"
                             : item.status === "error"
-                            ? "text-red-500"
-                            : item.status === "uploading"
-                            ? "text-gray-500"
-                            : "text-gray-400"
+                              ? "text-red-500"
+                              : item.status === "uploading"
+                                ? "text-gray-500"
+                                : "text-gray-400"
                         }`}
                       >
                         {statusLabel[item.status]}

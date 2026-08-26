@@ -29,8 +29,6 @@ export default function AISearchPage() {
     "복지제도 안내",
   ];
 
-
-
   const loadHistory = async () => {
     try {
       const response = await fetch("/api/history");
@@ -76,9 +74,7 @@ export default function AISearchPage() {
       }
 
       if (!response.ok) {
-        setAnswer(
-          `오류가 발생했습니다.\n\n${data.error || "AI 요청 실패"}`
-        );
+        setAnswer(`오류가 발생했습니다.\n\n${data.error || "AI 요청 실패"}`);
         return;
       }
 
@@ -101,7 +97,7 @@ export default function AISearchPage() {
     setSelectedHistoryItem(null);
   };
 
-if (isLoadingUser) {
+  if (isLoadingUser) {
     return (
       <div className="flex min-h-[400px] items-center justify-center text-sm text-gray-400">
         불러오는 중...
@@ -169,7 +165,7 @@ if (isLoadingUser) {
           <button
             onClick={handleSearch}
             disabled={isLoading}
-            className="rounded-xl bg-black px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="rounded-xl bg-[#2452D9] px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0] disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {isLoading ? "검색 중..." : "검색"}
           </button>
@@ -204,9 +200,7 @@ if (isLoadingUser) {
                   {sources.map((source) => (
                     <button
                       key={source.id}
-                      onClick={() =>
-                        handleDownload(source.id, source.fileName)
-                      }
+                      onClick={() => handleDownload(source.id, source.fileName)}
                       disabled={downloadingId === source.id}
                       className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -251,9 +245,7 @@ if (isLoadingUser) {
                   <div className="mr-4 flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500">
                     ⌕
                   </div>
-                  <span className="truncate text-sm text-gray-700">
-                    {item.question}
-                  </span>
+                  <span className="text-sm text-gray-700">{item.question}</span>
                 </div>
                 <span className="ml-4 shrink-0 text-gray-300">→</span>
               </button>
