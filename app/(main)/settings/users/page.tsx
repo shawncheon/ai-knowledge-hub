@@ -289,23 +289,14 @@ export default function UsersManagementPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <div className="mb-2 text-sm font-medium text-gray-400">
-            EMPLOYEE ACCOUNTS
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">임직원 관리</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            사내 정보 센터를 이용할 임직원 계정을 등록하고 관리하세요.
-          </p>
+      <div className="mb-8">
+        <div className="mb-2 text-sm font-medium text-gray-400">
+          EMPLOYEE ACCOUNTS
         </div>
-
-        <button
-          onClick={() => setIsFormOpen(true)}
-          className="shrink-0 cursor-pointer rounded-xl bg-[#2452D9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1D3FB0]"
-        >
-          + 직원 추가
-        </button>
+        <h1 className="text-3xl font-bold tracking-tight">임직원 관리</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          사내 정보 센터를 이용할 임직원 계정을 등록하고 관리하세요.
+        </p>
       </div>
 
       {/* 임직원 목록 (테이블) */}
@@ -367,7 +358,14 @@ export default function UsersManagementPage() {
             </div>
           </div>
 
-          <div />
+          <div className="flex items-center justify-end">
+            <button
+              onClick={() => setIsFormOpen(true)}
+              className="cursor-pointer rounded-xl bg-[#2452D9] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0]"
+            >
+              직원 추가
+            </button>
+          </div>
         </div>
 
         {filteredUsers.length === 0 ? (
