@@ -147,9 +147,9 @@ export default function AISearchPage() {
 
       {/* 검색 */}
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
-        <div className="flex items-center">
-          <div className="px-4 text-xl text-gray-400">⌕</div>
+      <div className="flex justify-center">
+        <div className="flex w-full max-w-md items-center rounded-full border border-gray-200 bg-white pl-2 shadow-sm">
+          <div className="pl-2 text-gray-400">⌕</div>
 
           <input
             type="text"
@@ -159,13 +159,23 @@ export default function AISearchPage() {
               if (e.key === "Enter") handleSearch();
             }}
             placeholder="예: 출장 숙박비 기준을 알려줘"
-            className="flex-1 bg-transparent px-2 py-4 text-base outline-none placeholder:text-gray-400"
+            className="flex-1 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-gray-400"
           />
+
+          {question && (
+            <button
+              onClick={() => setQuestion("")}
+              className="cursor-pointer px-2 text-gray-400 hover:text-gray-700"
+              title="입력 지우기"
+            >
+              ✕
+            </button>
+          )}
 
           <button
             onClick={handleSearch}
             disabled={isLoading}
-            className="rounded-xl bg-[#2452D9] px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0] disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="mr-1 cursor-pointer rounded-full bg-[#2452D9] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0] disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {isLoading ? "검색 중..." : "검색"}
           </button>

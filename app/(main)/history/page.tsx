@@ -13,6 +13,7 @@ export default function HistoryPage() {
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<HistoryItem | null>(null);
@@ -35,7 +36,9 @@ export default function HistoryPage() {
   useEffect(() => {
     loadHistory();
   }, []);
-
+  const handleSearch = () => {
+    setSearchQuery(searchInput);
+  };
   const searchTerms = searchQuery
     .toLowerCase()
     .split(/\s+/)
@@ -65,17 +68,41 @@ export default function HistoryPage() {
       </div>
 
       {history.length > 0 && (
-        <div className="relative mb-6">
-          <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
-            ⌕
+        <div className="mb-6 flex justify-center">
+          <div className="flex w-full max-w-md items-center rounded-full border border-gray-200 bg-white pl-2 shadow-sm">
+            <div className="pl-2 text-gray-400">⌕</div>
+
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch();
+              }}
+              placeholder="질문 또는 답변 내용으로 검색"
+              className="flex-1 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-gray-400"
+            />
+
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchInput("");
+                  setSearchQuery("");
+                }}
+                className="cursor-pointer px-2 text-gray-400 hover:text-gray-700"
+                title="검색 초기화"
+              >
+                ✕
+              </button>
+            )}
+
+            <button
+              onClick={handleSearch}
+              className="mr-1 cursor-pointer rounded-full bg-[#2452D9] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0]"
+            >
+              검색
+            </button>
           </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="질문 또는 답변 내용으로 검색"
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-black"
-          />
         </div>
       )}
 

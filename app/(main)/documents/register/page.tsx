@@ -514,15 +514,17 @@ export default function DocumentRegisterPage() {
               </div>
 
               {!batchDone ? (
-                <button
-                  onClick={() => handleBatchUpload()}
-                  disabled={isBatchUploading}
-                  className="mt-4 w-full cursor-pointer rounded-lg bg-black py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
-                >
-                  {isBatchUploading
-                    ? "순차 업로드 진행 중... (파일 사이 15초 대기)"
-                    : `${batchFiles.length}개 파일 업로드 시작`}
-                </button>
+                <div className="mt-4 flex justify-center">
+                  <button
+                    onClick={() => handleBatchUpload()}
+                    disabled={isBatchUploading}
+                    className="w-48 cursor-pointer rounded-lg bg-[#2452D9] py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0] disabled:cursor-not-allowed disabled:bg-gray-400"
+                  >
+                    {isBatchUploading
+                      ? "업로드 중..."
+                      : `${batchFiles.length}개 파일 업로드 시작`}
+                  </button>
+                </div>
               ) : batchErrorCount > 0 ? (
                 <div className="mt-4 space-y-2">
                   <button
@@ -549,12 +551,14 @@ export default function DocumentRegisterPage() {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => router.push("/documents")}
-                  className="mt-4 w-full cursor-pointer rounded-lg bg-black py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
-                >
-                  목록으로 이동
-                </button>
+                <div className="mt-4 flex justify-center">
+                  <button
+                    onClick={() => router.push("/documents")}
+                    className="w-40 cursor-pointer rounded-lg bg-[#2452D9] py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0]"
+                  >
+                    목록으로 이동
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -582,13 +586,15 @@ export default function DocumentRegisterPage() {
             </p>
           </div>
 
-          <button
-            onClick={handleSubmitUrl}
-            disabled={isSubmittingUrl}
-            className="w-full cursor-pointer rounded-lg bg-black py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
-          >
-            {isSubmittingUrl ? "페이지 가져오는 중..." : "정보 등록"}
-          </button>
+          <div className="flex justify-center">
+            <button
+              onClick={handleSubmitUrl}
+              disabled={isSubmittingUrl}
+              className="cursor-pointer rounded-xl bg-[#2452D9] px-9 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0] disabled:cursor-not-allowed disabled:bg-gray-400"
+            >
+              {isSubmittingUrl ? "페이지 가져오는 중..." : "저장"}
+            </button>
+          </div>
 
           {isSubmittingUrl && (
             <div className="mt-3 flex items-center rounded-lg bg-gray-50 p-3">
@@ -635,13 +641,15 @@ export default function DocumentRegisterPage() {
             </div>
           </div>
 
-          <button
-            onClick={handleSubmitText}
-            disabled={isSubmittingText}
-            className="w-full cursor-pointer rounded-lg bg-black py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
-          >
-            {isSubmittingText ? "등록 및 분석 중..." : "정보 등록"}
-          </button>
+          <div className="flex justify-center">
+            <button
+              onClick={handleSubmitText}
+              disabled={isSubmittingText}
+              className="cursor-pointer rounded-xl bg-[#2452D9] px-9 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D3FB0] disabled:cursor-not-allowed disabled:bg-gray-400"
+            >
+              {isSubmittingText ? "등록 및 분석 중..." : "저장"}
+            </button>
+          </div>
 
           {isSubmittingText && (
             <div className="mt-3 flex items-center rounded-lg bg-gray-50 p-3">

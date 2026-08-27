@@ -60,26 +60,26 @@ export default function DocumentsListPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <div className="mb-2 text-sm font-medium text-gray-400">
-            INFORMATION MANAGEMENT
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">정보 관리</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            AI가 검색할 회사 지식 정보를 등록하고 관리하세요.
-          </p>
+      <div className="mb-8">
+        <div className="mb-2 text-sm font-medium text-gray-400">
+          INFORMATION MANAGEMENT
         </div>
+        <h1 className="text-3xl font-bold tracking-tight">정보 관리</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          AI가 검색할 회사 지식 정보를 등록하고 관리하세요.
+        </p>
+      </div>
 
+      {/* 통계 */}
+
+      <div className="mb-3 flex justify-end">
         <Link
           href="/documents/register"
           className="shrink-0 cursor-pointer rounded-xl bg-[#2452D9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1D3FB0]"
         >
-          + 정보 등록
+          정보 등록
         </Link>
       </div>
-
-      {/* 통계 */}
 
       <div className="mb-6 grid grid-cols-3 gap-4">
         <div className="rounded-xl border border-gray-200 bg-white p-5">

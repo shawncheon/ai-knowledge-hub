@@ -62,19 +62,29 @@ export default function DashboardPage() {
     loadHistory();
   }, []);
 
-  const getWeeklyQuestionCounts = () => {
-    const days: { label: string; count: number }[] = [];
+  const getMonthlyQuestionCounts = () => {
+    const days: {
+      label: string;
+      dateLabel: string;
+      fullLabel: string;
+      count: number;
+    }[] = [];
     const now = new Date();
 
-    for (let i = 6; i >= 0; i--) {
+    for (let i = 29; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
-      const label = d.toLocaleDateString("ko-KR", { weekday: "short" });
+
+      const weekday = d.toLocaleDateString("ko-KR", { weekday: "short" });
+      const dateLabel = `${d.getMonth() + 1}/${d.getDate()}`;
+      const fullLabel = `${dateLabel} (${weekday})`;
+
       const dateStr = d.toDateString();
       const count = history.filter(
         (h) => new Date(h.created_at).toDateString() === dateStr,
       ).length;
-      days.push({ label, count });
+
+      days.push({ label: weekday, dateLabel, fullLabel, count });
     }
 
     return days;
@@ -88,7 +98,7 @@ export default function DashboardPage() {
     );
   }
 
-  const weeklyCounts = getWeeklyQuestionCounts();
+  const weeklyCounts = getMonthlyQuestionCounts();
   const maxCount = Math.max(...weeklyCounts.map((d) => d.count), 1);
 
   return (
@@ -129,27 +139,27 @@ export default function DashboardPage() {
 
       <section className="mt-8">
         <div className="mb-4">
-          <h2 className="text-sm font-semibold">최근 7일 질문 추이</h2>
+          <h2 className="text-sm font-semibold">최근 30일 질문 추이</h2>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="flex h-40 items-end justify-between gap-3">
+          <div className="flex h-48 items-end justify-between gap-1">
             {weeklyCounts.map((day, index) => (
               <div
                 key={index}
+                title={`${day.fullLabel}: ${day.count}건`}
                 className="flex h-full flex-1 flex-col items-center justify-end"
               >
-                <div className="mb-2 text-xs font-semibold text-gray-600">
+                <div className="mb-1.5 text-[9px] font-semibold text-gray-600">
                   {day.count}
                 </div>
                 <div
-                  className="w-full rounded-t-md bg-[#2452D9] transition-all"
+                  className="w-full rounded-t-sm bg-[#2452D9] transition-all hover:bg-[#1D3FB0]"
                   style={{
                     height: `${(day.count / maxCount) * 100}%`,
-                    minHeight: day.count > 0 ? "4px" : "0",
+                    minHeight: day.count > 0 ? "3px" : "0",
                   }}
                 />
-                <div className="mt-2 text-xs text-gray-400">{day.label}</div>
               </div>
             ))}
           </div>
