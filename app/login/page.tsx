@@ -58,6 +58,19 @@ export default function LoginPage() {
           <p className="mt-1 text-xs text-[#8891A5]">AI Knowledge Management</p>
         </div>
 
+        <div className="mb-6 rounded-lg bg-blue-50 p-4 text-center">
+          <div className="text-xs font-semibold text-[#2452D9]">
+            테스트 계정
+          </div>
+          <div className="mt-1.5 text-xs text-gray-600">
+            이메일: test01@company.com
+          </div>
+          <div className="text-xs text-gray-600">비밀번호: test1234</div>
+          <div className="mt-2 text-[11px] text-gray-400">
+            동시 접속이 많으면 답변이 느릴 수 있습니다.
+          </div>
+        </div>
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#4B5468]">
