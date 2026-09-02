@@ -13,6 +13,47 @@ export const runtime = "nodejs";
 const require = createRequire(import.meta.url);
 
 // =========================================
+// (PDF/직접입력용) 텍스트를 일정 길이로 청크 분할
+// =========================================
+function splitIntoChunks(
+  text: string,
+  chunkSize = 800,
+  overlap = 100,
+): string[] {
+  const chunks: string[] = [];
+  let start = 0;
+
+  while (start < text.length) {
+    const end = Math.min(start + chunkSize, text.length);
+    const chunk = text.slice(start, end).trim();
+
+    if (chunk) {
+      chunks.push(chunk);
+    }
+
+    start += chunkSize - overlap;
+  }
+
+  return chunks;
+}
+// =========================================
+// 파일명을 Supabase Storage 키로 써도 안전하게 정리
+// (공백/특수문자 등을 밑줄로 치환)
+// =========================================
+function sanitizeFileName(name: string): string {
+  const lastDotIndex = name.lastIndexOf(".");
+  const ext = lastDotIndex !== -1 ? name.slice(lastDotIndex) : "";
+  const base = lastDotIndex !== -1 ? name.slice(0, lastDotIndex) : name;
+
+  const safeBase = base
+    .normalize("NFC")
+    .replace(/[^\p{L}\p{N}_-]+/gu, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+
+  return `${safeBase || "file"}${ext}`;
+}
+// =========================================
 // 요청 보낸 사람이 admin인지 확인
 // =========================================
 async function requireAdmin() {
@@ -28,7 +69,7 @@ async function requireAdmin() {
         },
         setAll() {},
       },
-    }
+    },
   );
 
   const {
@@ -50,31 +91,6 @@ async function requireAdmin() {
   }
 
   return authUser;
-}
-
-// =========================================
-// (PDF/직접입력용) 텍스트를 일정 길이로 청크 분할
-// =========================================
-function splitIntoChunks(
-  text: string,
-  chunkSize = 800,
-  overlap = 100
-): string[] {
-  const chunks: string[] = [];
-  let start = 0;
-
-  while (start < text.length) {
-    const end = Math.min(start + chunkSize, text.length);
-    const chunk = text.slice(start, end).trim();
-
-    if (chunk) {
-      chunks.push(chunk);
-    }
-
-    start += chunkSize - overlap;
-  }
-
-  return chunks;
 }
 
 // =========================================
@@ -128,7 +144,7 @@ export async function POST(req: Request) {
     if (!admin) {
       return NextResponse.json(
         { success: false, error: "정보 등록은 관리자만 가능합니다." },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -156,14 +172,14 @@ export async function POST(req: Request) {
       if (!title) {
         return NextResponse.json(
           { success: false, error: "제목을 입력해주세요." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
       if (!content) {
         return NextResponse.json(
           { success: false, error: "내용을 입력해주세요." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -176,7 +192,7 @@ export async function POST(req: Request) {
       if (chunks.length === 0) {
         return NextResponse.json(
           { success: false, error: "등록할 내용이 너무 짧습니다." },
-          { status: 400 }
+          { status: 400 },
         );
       }
     } else if (registerType === "url") {
@@ -188,7 +204,7 @@ export async function POST(req: Request) {
       if (!sourceUrl) {
         return NextResponse.json(
           { success: false, error: "URL을 입력해주세요." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -201,7 +217,7 @@ export async function POST(req: Request) {
       } catch {
         return NextResponse.json(
           { success: false, error: "올바른 URL 형식이 아닙니다." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -212,8 +228,7 @@ export async function POST(req: Request) {
 
         pageResponse = await fetch(sourceUrl, {
           headers: {
-            "User-Agent":
-              "Mozilla/5.0 (compatible; InternalKnowledgeBot/1.0)",
+            "User-Agent": "Mozilla/5.0 (compatible; InternalKnowledgeBot/1.0)",
           },
           signal: controller.signal,
           redirect: "follow",
@@ -226,7 +241,7 @@ export async function POST(req: Request) {
             success: false,
             error: "페이지에 접속하지 못했습니다. URL을 다시 확인해주세요.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -236,11 +251,35 @@ export async function POST(req: Request) {
             success: false,
             error: `페이지를 가져오지 못했습니다. (상태 코드: ${pageResponse.status})`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
-      const html = await pageResponse.text();
+      // =========================================
+      // 인코딩(charset) 감지 후 올바르게 디코딩
+      // (일부 공공/구형 사이트는 UTF-8이 아니라 EUC-KR/CP949를 씀)
+      // =========================================
+      const buffer = Buffer.from(await pageResponse.arrayBuffer());
+
+      const responseContentType =
+        pageResponse.headers.get("content-type") || "";
+      const charsetMatch = responseContentType.match(/charset=([^;]+)/i);
+      let detectedCharset = charsetMatch?.[1]?.trim().toLowerCase();
+
+      if (!detectedCharset) {
+        const preview = buffer.toString("utf-8", 0, 1000);
+        const metaMatch = preview.match(/charset=["']?([a-zA-Z0-9-]+)/i);
+        detectedCharset = metaMatch?.[1]?.toLowerCase();
+      }
+
+      const iconv = require("iconv-lite");
+
+      const html =
+        detectedCharset &&
+        !detectedCharset.includes("utf-8") &&
+        !detectedCharset.includes("utf8")
+          ? iconv.decode(buffer, detectedCharset)
+          : buffer.toString("utf-8");
 
       let extractedTitle = sourceUrl;
       let extractedText = "";
@@ -264,7 +303,7 @@ export async function POST(req: Request) {
             error:
               "페이지에서 본문 내용을 추출하지 못했습니다. 로그인이 필요하거나, 자바스크립트로 렌더링되는 페이지일 수 있습니다.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -277,202 +316,7 @@ export async function POST(req: Request) {
       if (chunks.length === 0) {
         return NextResponse.json(
           { success: false, error: "등록할 내용이 너무 짧습니다." },
-          { status: 400 }
-        );
-      }
-    } else if (registerType === "url") {
-      // =========================================
-      // 2-C. URL 등록
-      // =========================================
-      const sourceUrl = (formData.get("url") as string | null)?.trim();
-
-      if (!sourceUrl) {
-        return NextResponse.json(
-          { success: false, error: "URL을 입력해주세요." },
-          { status: 400 }
-        );
-      }
-
-      let parsedUrl: URL;
-      try {
-        parsedUrl = new URL(sourceUrl);
-        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-          throw new Error("invalid protocol");
-        }
-      } catch {
-        return NextResponse.json(
-          { success: false, error: "올바른 URL 형식이 아닙니다." },
-          { status: 400 }
-        );
-      }
-
-      let pageResponse: Response;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-
-        pageResponse = await fetch(sourceUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (compatible; InternalKnowledgeBot/1.0)",
-          },
-          signal: controller.signal,
-          redirect: "follow",
-        });
-
-        clearTimeout(timeout);
-      } catch {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "페이지에 접속하지 못했습니다. URL을 다시 확인해주세요.",
-          },
-          { status: 400 }
-        );
-      }
-
-      if (!pageResponse.ok) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `페이지를 가져오지 못했습니다. (상태 코드: ${pageResponse.status})`,
-          },
-          { status: 400 }
-        );
-      }
-
-      const html = await pageResponse.text();
-
-      let extractedTitle = sourceUrl;
-      let extractedText = "";
-
-      try {
-        const dom = new JSDOM(html, { url: sourceUrl });
-        const article = new Readability(dom.window.document).parse();
-
-        if (article?.textContent) {
-          extractedText = article.textContent.trim();
-          extractedTitle = article.title || sourceUrl;
-        }
-      } catch {
-        // 아래 폴백 처리로 이어짐
-      }
-
-      if (!extractedText || extractedText.length < 50) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "페이지에서 본문 내용을 추출하지 못했습니다. 로그인이 필요하거나, 자바스크립트로 렌더링되는 페이지일 수 있습니다.",
-          },
-          { status: 400 }
-        );
-      }
-
-      fullText = extractedText;
-      chunks = splitIntoChunks(fullText);
-      fileName = extractedTitle;
-      fileSize = Buffer.byteLength(extractedText, "utf-8");
-      storagePath = null;
-
-      if (chunks.length === 0) {
-        return NextResponse.json(
-          { success: false, error: "등록할 내용이 너무 짧습니다." },
-          { status: 400 }
-        );
-      }
-      } else if (registerType === "url") {
-      // =========================================
-      // 2-C. URL 등록
-      // =========================================
-      const sourceUrl = (formData.get("url") as string | null)?.trim();
-
-      if (!sourceUrl) {
-        return NextResponse.json(
-          { success: false, error: "URL을 입력해주세요." },
-          { status: 400 }
-        );
-      }
-let parsedUrl: URL;
-      try {
-        parsedUrl = new URL(sourceUrl);
-        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-          throw new Error("invalid protocol");
-        }
-      } catch {
-        return NextResponse.json(
-          { success: false, error: "올바른 URL 형식이 아닙니다." },
-          { status: 400 }
-        );
-      }
-   let pageResponse: Response;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-
-        pageResponse = await fetch(sourceUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (compatible; InternalKnowledgeBot/1.0)",
-          },
-          signal: controller.signal,
-          redirect: "follow",
-        });
-    clearTimeout(timeout);
-      } catch {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "페이지에 접속하지 못했습니다. URL을 다시 확인해주세요.",
-          },
-          { status: 400 }
-        );
-      }
-   if (!pageResponse.ok) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `페이지를 가져오지 못했습니다. (상태 코드: ${pageResponse.status})`,
-          },
-          { status: 400 }
-        );
-      }
-      const html = await pageResponse.text();
-
-      let extractedTitle = sourceUrl;
-      let extractedText = "";
-
-      try {
-        const dom = new JSDOM(html, { url: sourceUrl });
-        const article = new Readability(dom.window.document).parse();
-
-        if (article?.textContent) {
-          extractedText = article.textContent.trim();
-          extractedTitle = article.title || sourceUrl;
-        }
-      } catch {
-        // 아래 폴백 처리로 이어짐
-      } 
-       if (!extractedText || extractedText.length < 50) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "페이지에서 본문 내용을 추출하지 못했습니다. 로그인이 필요하거나, 자바스크립트로 렌더링되는 페이지일 수 있습니다.",
-          },
-          { status: 400 }
-        );
-      }
-        fullText = extractedText;
-      chunks = splitIntoChunks(fullText);
-      fileName = extractedTitle;
-      fileSize = Buffer.byteLength(extractedText, "utf-8");
-      storagePath = null;
-
-      if (chunks.length === 0) {
-        return NextResponse.json(
-          { success: false, error: "등록할 내용이 너무 짧습니다." },
-          { status: 400 }
+          { status: 400 },
         );
       }
     } else {
@@ -480,10 +324,11 @@ let parsedUrl: URL;
       // 2-B. 파일(PDF/Excel) 업로드
       // =========================================
       const file = formData.get("file") as File | null;
+
       if (!file) {
         return NextResponse.json(
           { success: false, error: "파일이 없습니다." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -502,7 +347,7 @@ let parsedUrl: URL;
             error:
               "PDF 또는 Excel(.xlsx, .xls, .csv) 파일만 업로드할 수 있습니다.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -510,7 +355,7 @@ let parsedUrl: URL;
       if (file.size > maxSize) {
         return NextResponse.json(
           { success: false, error: "파일 크기는 10MB 이하만 가능합니다." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -519,7 +364,13 @@ let parsedUrl: URL;
 
       fileName = file.name;
       fileSize = file.size;
-      storagePath = `${documentId}/${file.name}`;
+
+      // 확장자만 추출해서, 저장 경로는 documentId + 확장자로만 구성
+      // (한글/특수문자 파일명이 Storage key로 쓰일 때 생기는 오류를 원천 차단)
+      const lastDotIndex = file.name.lastIndexOf(".");
+      const ext = lastDotIndex !== -1 ? file.name.slice(lastDotIndex) : "";
+
+      storagePath = `${documentId}/file${ext}`;
 
       if (isPdf) {
         const { PDFParse } = require("pdf-parse");
@@ -532,7 +383,7 @@ let parsedUrl: URL;
         if (!fullText.trim()) {
           return NextResponse.json(
             { success: false, error: "PDF에서 텍스트를 추출하지 못했습니다." },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
@@ -547,7 +398,7 @@ let parsedUrl: URL;
               error:
                 "Excel 파일에서 데이터를 추출하지 못했습니다. 첫 행이 헤더인지 확인해주세요.",
             },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
@@ -581,7 +432,7 @@ let parsedUrl: URL;
     if (!apiKey) {
       return NextResponse.json(
         { success: false, error: "GEMINI_API_KEY가 설정되지 않았습니다." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -606,11 +457,12 @@ let parsedUrl: URL;
     // =========================================
     // 4. Supabase에 문서 메타데이터 저장
     // =========================================
-const sourceUrlToSave =
+    const sourceUrlToSave =
       registerType === "url"
         ? ((formData.get("url") as string | null)?.trim() ?? null)
         : null;
-        const { data: documentRow, error: docError } = await supabaseAdmin
+
+    const { data: documentRow, error: docError } = await supabaseAdmin
       .from("documents")
       .insert({
         id: documentId,
@@ -674,7 +526,7 @@ const sourceUrlToSave =
             ? error.message
             : "정보 등록 중 오류가 발생했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -717,8 +569,7 @@ export async function GET() {
             ? error.message
             : "문서 목록을 불러오지 못했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
