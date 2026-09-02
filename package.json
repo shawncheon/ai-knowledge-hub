@@ -12,6 +12,7 @@
   "dependencies": {
     "@google/genai": "^2.16.0",
     "@mozilla/readability": "^0.6.0",
+    "@napi-rs/canvas": "^1.0.8",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "iconv-lite": "^0.7.3",
