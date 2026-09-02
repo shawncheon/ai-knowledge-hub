@@ -374,7 +374,8 @@ export async function POST(req: Request) {
 
       if (isPdf) {
         const { PDFParse } = require("pdf-parse");
-        const { CanvasFactory } = require("pdf-parse/worker");
+        const { CanvasFactory, getData } = require("pdf-parse/worker");
+        PDFParse.setWorker(getData());
         const parser = new PDFParse({ data: buffer, CanvasFactory });
         const parsed = await parser.getText();
         await parser.destroy();
