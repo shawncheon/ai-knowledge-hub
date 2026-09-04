@@ -17,7 +17,7 @@ export async function GET() {
           },
           setAll() {},
         },
-      }
+      },
     );
 
     const {
@@ -27,7 +27,7 @@ export async function GET() {
     if (!authUser) {
       return NextResponse.json(
         { success: false, error: "로그인이 필요합니다." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -40,7 +40,7 @@ export async function GET() {
     if (userError || !userRow) {
       return NextResponse.json(
         { success: false, error: "사용자 정보를 찾을 수 없습니다." },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -78,7 +78,7 @@ export async function GET() {
             ? error.message
             : "히스토리를 불러오지 못했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
