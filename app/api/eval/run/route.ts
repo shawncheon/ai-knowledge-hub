@@ -23,7 +23,6 @@ export async function POST() {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // 1. 골든셋 전체 가져오기
     const { data: goldenSet, error: gsError } = await supabaseAdmin
       .from("golden_set")
       .select("*");
@@ -48,9 +47,6 @@ export async function POST() {
       }
 
       try {
-        // =========================================
-        // /api/chat과 완전히 동일한 검색+답변 로직
-        // =========================================
         const embedResponse = await ai.models.embedContent({
           model: "gemini-embedding-001",
           contents: item.question,
@@ -126,7 +122,6 @@ ${item.question}
 
           const responseText = response.text || "";
 
-          // Gemini API가 에러를 텍스트 형태로 반환하는 경우 감지
           if (
             responseText.includes('"status":"UNAVAILABLE"') ||
             responseText.includes('"code":503')
@@ -150,12 +145,6 @@ ${item.question}
           sources = Array.from(sourceMap.values());
         }
 
-        // ⚠️ 주의: 평가용 질문은 chat_history에 저장하지 않음
-        // (실제 임직원 통계/대시보드가 오염되지 않도록)
-
-        // =========================================
-        // LLM 채점 (실제 답변 vs 정답 비교)
-        // =========================================
         const judgePrompt = `당신은 RAG 시스템의 답변 품질을 채점하는 평가자입니다.
 
 질문: ${item.question}
@@ -215,7 +204,6 @@ ${item.question}
     }
 
     const successfulResults = results.filter((r) => r.success);
-
     const avgScore =
       successfulResults.length > 0
         ? successfulResults.reduce((sum, r) => sum + r.score, 0) /
