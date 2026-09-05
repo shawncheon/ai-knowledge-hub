@@ -132,9 +132,42 @@ function AppShell({ children }: { children: ReactNode }) {
 
             {user?.role === "admin" ? (
               <>
-                <div className="mb-1 px-3 py-1.5 text-[11px] font-medium text-white/30">
-                  계정관리
-                </div>
+                {user?.role === "admin" && (
+                  <>
+                    <div className="mb-1 px-3 py-1.5 text-[11px] font-medium text-white/30">
+                      평가
+                    </div>
+
+                    <Link
+                      href="/eval"
+                      className={`mb-0.5 flex w-full items-center rounded-lg py-2.5 pl-6 pr-3 text-sm transition ${
+                        isActive("/eval") &&
+                        !pathname.startsWith("/eval/chunking")
+                          ? "bg-[#2452D9] font-semibold text-white"
+                          : "text-white/60 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <span className="mr-3 text-base">📊</span>
+                      답변 평가
+                    </Link>
+
+                    <Link
+                      href="/eval/chunking"
+                      className={`mb-0.5 flex w-full items-center rounded-lg py-2.5 pl-6 pr-3 text-sm transition ${
+                        pathname.startsWith("/eval/chunking")
+                          ? "bg-[#2452D9] font-semibold text-white"
+                          : "text-white/60 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <span className="mr-3 text-base">🔬</span>
+                      청킹 실험
+                    </Link>
+
+                    <div className="mt-6 mb-1 px-3 py-1.5 text-[11px] font-medium text-white/30">
+                      계정관리
+                    </div>
+                  </>
+                )}
 
                 <Link
                   href="/settings/users"
