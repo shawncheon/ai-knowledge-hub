@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       variantResults[variant] = [];
 
       for (const item of goldenSet) {
-        await new Promise((resolve) => setTimeout(resolve, 2500));
+        await new Promise((resolve) => setTimeout(resolve, 5000));
 
         try {
           const embedResponse = await ai.models.embedContent({
@@ -111,6 +111,9 @@ ${item.question}
 
             actualAnswer = response.text || "";
           }
+
+          // 답변 생성과 채점 사이에도 대기 (Flash Lite 연속 호출 방지)
+          await new Promise((resolve) => setTimeout(resolve, 5000));
 
           const judgePrompt = `질문: ${item.question}
 정답(기준): ${item.expected_answer}

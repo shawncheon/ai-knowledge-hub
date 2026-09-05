@@ -323,6 +323,105 @@ export default function ChunkingExperimentPage() {
               ))}
             </div>
           </section>
+
+          {/* 종합 컨설팅 요약 */}
+
+          <section className="mt-6">
+            <div className="mb-4 text-sm font-semibold">종합 요약 및 제안</div>
+
+            {(() => {
+              const [a, b] = summary;
+              const diff = b.avgScore - a.avgScore;
+
+              let verdict = "";
+              let verdictColor = "";
+
+              if (diff >= 10) {
+                verdict = `B안(${b.variant})이 뚜렷하게 우세합니다 (+${diff}점). 실제 적용을 적극 검토해보세요.`;
+                verdictColor = "bg-green-50 text-green-700 border-green-200";
+              } else if (diff >= 5) {
+                verdict = `B안(${b.variant})이 다소 우세합니다 (+${diff}점). 골든셋을 조금 더 늘려 재검증 후 적용을 검토해보세요.`;
+                verdictColor = "bg-green-50 text-green-700 border-green-200";
+              } else if (diff <= -10) {
+                verdict = `A안(${a.variant})이 뚜렷하게 우세합니다 (${diff}점). B안 적용은 권장하지 않습니다.`;
+                verdictColor = "bg-red-50 text-red-700 border-red-200";
+              } else if (diff <= -5) {
+                verdict = `A안(${a.variant})이 다소 우세합니다 (${diff}점). 현재 설정 유지를 권장합니다.`;
+                verdictColor = "bg-red-50 text-red-700 border-red-200";
+              } else {
+                verdict = `두 방식의 점수 차이가 크지 않습니다 (${diff > 0 ? "+" : ""}${diff}점). 지금 결과만으로 결론 내리기보다, 골든셋 문항을 늘려(예: 9개 → 20개 이상) 재검증하는 것을 권장합니다.`;
+                verdictColor = "bg-amber-50 text-amber-700 border-amber-200";
+              }
+
+              // 문항별 변화량 계산
+              const deltas = a.results.map((r, i) => ({
+                question: r.question,
+                delta: b.results[i].score - r.score,
+              }));
+
+              const improved = deltas
+                .filter((d) => d.delta > 0)
+                .sort((x, y) => y.delta - x.delta)
+                .slice(0, 3);
+
+              const worsened = deltas
+                .filter((d) => d.delta < 0)
+                .sort((x, y) => x.delta - y.delta)
+                .slice(0, 3);
+
+              return (
+                <div className="space-y-4">
+                  <div
+                    className={`rounded-xl border p-4 text-sm ${verdictColor}`}
+                  >
+                    {verdict}
+                  </div>
+
+                  {improved.length > 0 && (
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="mb-2 text-xs font-semibold text-gray-500">
+                        📈 B안에서 개선된 질문
+                      </div>
+                      <ul className="space-y-1.5">
+                        {improved.map((d, i) => (
+                          <li
+                            key={i}
+                            className="flex items-center justify-between text-sm"
+                          >
+                            <span className="text-gray-700">{d.question}</span>
+                            <span className="font-semibold text-green-600">
+                              +{d.delta}점
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {worsened.length > 0 && (
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="mb-2 text-xs font-semibold text-gray-500">
+                        📉 B안에서 오히려 나빠진 질문
+                      </div>
+                      <ul className="space-y-1.5">
+                        {worsened.map((d, i) => (
+                          <li
+                            key={i}
+                            className="flex items-center justify-between text-sm"
+                          >
+                            <span className="text-gray-700">{d.question}</span>
+                            <span className="font-semibold text-red-600">
+                              {d.delta}점
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </section>
         </>
       )}
     </>

@@ -3,8 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/require-admin";
 
-// VARIANTS는 이제 고정값이 아니라, 요청받은 값으로 동적으로 만듭니다
-
 function splitIntoChunks(
   text: string,
   chunkSize: number,
@@ -55,7 +53,6 @@ export async function POST(req: Request) {
       overlap: Number(body.overlapB),
     };
 
-    // 값 검증
     for (const v of [variantA, variantB]) {
       if (!v.chunkSize || v.chunkSize < 50 || v.chunkSize > 5000) {
         return NextResponse.json(
@@ -94,6 +91,7 @@ export async function POST(req: Request) {
     }
 
     let totalChunks = 0;
+    const BATCH_SIZE = 3;
 
     for (const doc of documents) {
       if (!doc.full_text || doc.full_text.trim().length === 0) continue;
@@ -104,24 +102,48 @@ export async function POST(req: Request) {
           variant.chunkSize,
           variant.overlap,
         );
+
         if (chunks.length === 0) continue;
 
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // 청크가 많아도 TPM(분당 토큰) 한도를 넘지 않도록 작은 배치로 나눠서 호출
+        const allEmbeddings: number[][] = [];
 
-        const embedResponse = await ai.models.embedContent({
-          model: "gemini-embedding-001",
-          contents: chunks,
-          config: { outputDimensionality: 768 },
-        });
+        for (let b = 0; b < chunks.length; b += BATCH_SIZE) {
+          const batch = chunks.slice(b, b + BATCH_SIZE);
 
-        const embeddings = embedResponse.embeddings || [];
+          await new Promise((resolve) => setTimeout(resolve, 6000));
+
+          let embedResponse;
+          let retries = 0;
+
+          while (retries < 3) {
+            try {
+              embedResponse = await ai.models.embedContent({
+                model: "gemini-embedding-001",
+                contents: batch,
+                config: { outputDimensionality: 768 },
+              });
+              break;
+            } catch (err) {
+              retries++;
+              if (retries >= 3) throw err;
+              // 429를 만나면 20초 기다렸다가 재시도
+              await new Promise((resolve) => setTimeout(resolve, 20000));
+            }
+          }
+
+          const batchEmbeddings = (embedResponse?.embeddings || []).map(
+            (e) => e.values as number[],
+          );
+          allEmbeddings.push(...batchEmbeddings);
+        }
 
         const rows = chunks.map((content, index) => ({
           document_id: doc.id,
           variant: variant.name,
           content,
           chunk_index: index,
-          embedding: embeddings[index]?.values,
+          embedding: allEmbeddings[index],
         }));
 
         await supabaseAdmin.from("document_chunks_experiment").insert(rows);
